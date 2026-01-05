@@ -1,0 +1,103 @@
+.subtitle {
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: hsl(var(--foreground));
+}
+
+.clubGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.clubCard {
+    background: hsl(var(--card));
+    border: 2px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.clubCard.selected {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.05);
+}
+
+.clubIcon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.clubName {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: white;
+}
+
+.clubInfo {
+    color: hsl(var(--foreground) / 0.6);
+    font-size: 0.9rem;
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.success {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.successIcon {
+    margin-bottom: 1.5rem;
+}
+
+.statusBox {
+    margin: 1.5rem 0;
+    font-size: 1.1rem;
+}
+
+.statusBadge {
+    background: hsl(var(--warning));
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-left: 0.5rem;
+}
+
+.note {
+    color: hsl(var(--foreground) / 0.6);
+    font-size: 0.9rem;
+}
+
+.fadeIn {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

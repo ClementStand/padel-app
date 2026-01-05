@@ -1,0 +1,56 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.header h1 {
+    font-size: 2rem;
+    color: hsl(var(--primary));
+    margin-bottom: 0.5rem;
+}
+
+.form {
+    background: hsl(var(--card));
+    padding: 2rem;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.1);
+}
+
+.group {
+    margin-bottom: 1rem;
+}
+
+.group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.error {
+    color: hsl(var(--destructive));
+    background: hsl(var(--destructive) / 0.1);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.footer a {
+    color: hsl(var(--primary));
+    font-weight: 600;
+}

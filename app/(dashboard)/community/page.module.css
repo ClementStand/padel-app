@@ -1,0 +1,141 @@
+.container {
+    padding: 1rem;
+    padding-top: 2rem;
+    padding-bottom: 6rem;
+    /* Space for bottom nav */
+}
+
+.header {
+    margin-bottom: 1.5rem;
+}
+
+.header h1 {
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.header p {
+    color: hsl(var(--foreground)/0.6);
+    font-size: 0.95rem;
+}
+
+.searchContainer {
+    margin-bottom: 1.5rem;
+    position: sticky;
+    top: 1rem;
+    z-index: 10;
+}
+
+.inputWrapper {
+    position: relative;
+    background: hsl(var(--card));
+    border-radius: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.searchIcon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: hsl(var(--foreground)/0.5);
+}
+
+.searchInput {
+    width: 100%;
+    padding: 0.85rem 1rem 0.85rem 3rem;
+    background: transparent;
+    border: 1px solid hsl(var(--border));
+    border-radius: 2rem;
+    color: hsl(var(--foreground));
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+    border-color: hsl(var(--primary));
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.card {
+    background: hsl(var(--card));
+    padding: 1rem;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+    border: 1px solid hsl(var(--border));
+}
+
+.card:active {
+    transform: scale(0.98);
+}
+
+.rank {
+    font-weight: bold;
+    color: hsl(var(--foreground)/0.4);
+    width: 24px;
+    font-size: 0.9rem;
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: hsl(var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.info {
+    flex: 1;
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0.25rem;
+}
+
+.name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.flag {
+    font-size: 0.9rem;
+}
+
+.meta {
+    font-size: 0.8rem;
+    color: hsl(var(--foreground)/0.6);
+}
+
+.elo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: hsl(var(--primary));
+}
+
+.eloLabel {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    color: hsl(var(--foreground)/0.5);
+    font-weight: 600;
+}

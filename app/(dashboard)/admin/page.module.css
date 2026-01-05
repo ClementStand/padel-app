@@ -1,0 +1,133 @@
+.sectionTitle {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.badge {
+    background: hsl(var(--primary));
+    color: white;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.empty {
+    color: hsl(var(--foreground) / 0.5);
+    font-style: italic;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.clubName {
+    font-weight: 700;
+    color: hsl(var(--primary));
+}
+
+.timeAgo {
+    font-size: 0.8rem;
+    color: hsl(var(--foreground) / 0.5);
+}
+
+.details {
+    margin-bottom: 1rem;
+}
+
+.detailRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.95rem;
+}
+
+.user {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.actionBtn {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.actionBtn:active {
+    opacity: 0.8;
+}
+
+.reject {
+    background: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+}
+
+.confirm {
+    background: hsl(var(--success));
+    color: white;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.historyItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid hsl(var(--border));
+}
+
+.statusPill {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: capitalize;
+    font-weight: 500;
+}
+
+.statusPill.confirmed {
+    background: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+}
+
+.statusPill.rejected {
+    background: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+}

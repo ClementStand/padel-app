@@ -1,0 +1,110 @@
+.header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.flagBadge {
+    font-size: 1.5rem;
+    position: absolute;
+    top: 60px;
+    right: 50%;
+    transform: translateX(35px);
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
+}
+
+.name {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.details {
+    color: hsl(var(--foreground) / 0.8);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.meta {
+    color: hsl(var(--foreground) / 0.6);
+    font-size: 0.9rem;
+    margin-top: 2px;
+}
+
+.subtitle {
+    color: hsl(var(--foreground) / 0.6);
+    font-size: 0.9rem;
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.statCard {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+}
+
+.statLabel {
+    font-size: 0.75rem;
+    color: hsl(var(--foreground) / 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.statValue {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: hsl(var(--primary));
+}
+
+.unit {
+    font-size: 0.7rem;
+    margin-left: 2px;
+    color: hsl(var(--foreground) / 0.4);
+}
+
+.menuCard {
+    padding: 0 !important;
+    /* Override Card padding */
+}
+
+.menuItem {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 1px solid hsl(var(--border));
+}
+
+.menuItem:last-child {
+    border-bottom: none;
+}
+
+.adminItem {
+    color: hsl(var(--primary));
+    font-weight: 600;
+}
