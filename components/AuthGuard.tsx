@@ -2,24 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
-    const [authorized, setAuthorized] = useState(false);
 
     useEffect(() => {
-        // Check auth on mount
-        const user = getCurrentUser();
-        if (!user) {
-            router.push('/login');
-        } else {
-            setAuthorized(true);
-        }
+        const checkUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push('/login');
+            }
+            setLoading(false);
+        };
+        
+        checkUser();
     }, [router]);
 
-    if (!authorized) {
-        return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+    if (loading) {
+        return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
     }
 
     return <>{children}</>;
