@@ -8,39 +8,36 @@ import styles from './page.module.css';
 
 export default function SettingsPage() {
     const router = useRouter();
+    const [mounted, setMounted] = useState(false); // <--- The Fix
     const [loading, setLoading] = useState(false);
-    
-    // Default to false to avoid server/client mismatch
     const [darkMode, setDarkMode] = useState(false);
 
-    // FIX: We strictly access localStorage ONLY inside useEffect
+    // 1. Wait until the component runs in the browser
     useEffect(() => {
-        // This check ensures code only runs in the browser
-        if (typeof window !== 'undefined') {
-            const isDark = localStorage.getItem('theme') === 'dark';
-            setDarkMode(isDark);
-        }
+        setMounted(true);
+        // Only access localStorage after we know we are in the browser
+        const isDark = localStorage.getItem('theme') === 'dark';
+        setDarkMode(isDark);
     }, []);
 
     const handleLogout = async () => {
         setLoading(true);
         await supabase.auth.signOut();
-        
-        // Safe check before clearing
-        if (typeof window !== 'undefined') {
-            localStorage.clear();
-        }
-        
+        localStorage.clear(); // Safe because this function only runs on click
         router.push('/login');
     };
 
     const toggleTheme = () => {
         const newMode = !darkMode;
         setDarkMode(newMode);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('theme', newMode ? 'dark' : 'light');
-        }
+        localStorage.setItem('theme', newMode ? 'dark' : 'light');
     };
+
+    // 2. If we are on the server (not mounted yet), render NOTHING.
+    // This prevents the "window not defined" crash completely.
+    if (!mounted) {
+        return null;
+    }
 
     return (
         <div style={{ padding: '1rem' }}>
@@ -68,8 +65,8 @@ export default function SettingsPage() {
             </div>
 
             <div style={{ marginTop: '2rem' }}>
-                <button 
-                    className="btn btn-outline" 
+                <button
+                    className="btn btn-outline"
                     style={{ width: '100%', borderColor: 'red', color: 'red' }}
                     onClick={handleLogout}
                     disabled={loading}
