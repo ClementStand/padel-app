@@ -9,51 +9,42 @@ import styles from './page.module.css';
 export default function SettingsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-
-    // We use a simple state for visual toggles (mocking dark mode for now)
+    
+    // Default to false to avoid server/client mismatch
     const [darkMode, setDarkMode] = useState(false);
 
-    // If you were reading from localStorage, you would do it here:
+    // FIX: We strictly access localStorage ONLY inside useEffect
     useEffect(() => {
-        // This code only runs in the browser, so 'window' is safe here
-        const isDark = localStorage.getItem('theme') === 'dark';
-        setDarkMode(isDark);
+        // This check ensures code only runs in the browser
+        if (typeof window !== 'undefined') {
+            const isDark = localStorage.getItem('theme') === 'dark';
+            setDarkMode(isDark);
+        }
     }, []);
 
     const handleLogout = async () => {
         setLoading(true);
-        // Sign out from Supabase
         await supabase.auth.signOut();
-
-        // Clear any leftover local data if needed
-        localStorage.clear();
-
+        
+        // Safe check before clearing
+        if (typeof window !== 'undefined') {
+            localStorage.clear();
+        }
+        
         router.push('/login');
     };
 
     const toggleTheme = () => {
         const newMode = !darkMode;
         setDarkMode(newMode);
-        localStorage.setItem('theme', newMode ? 'dark' : 'light');
-        // You would add actual theme switching logic here later
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('theme', newMode ? 'dark' : 'light');
+        }
     };
 
     return (
         <div style={{ padding: '1rem' }}>
             <h1 className={styles.title}>Settings</h1>
-
-            <div className={styles.section}>
-                <h2>Account</h2>
-                <div className={styles.card}>
-                    <div className={styles.row}>
-                        <div className={styles.iconBox}><User size={20} /></div>
-                        <div className={styles.info}>
-                            <div className={styles.label}>Profile Information</div>
-                            <div className={styles.value}>Update your personal details</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <div className={styles.section}>
                 <h2>Preferences</h2>
@@ -77,8 +68,8 @@ export default function SettingsPage() {
             </div>
 
             <div style={{ marginTop: '2rem' }}>
-                <button
-                    className="btn btn-outline"
+                <button 
+                    className="btn btn-outline" 
                     style={{ width: '100%', borderColor: 'red', color: 'red' }}
                     onClick={handleLogout}
                     disabled={loading}
