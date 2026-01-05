@@ -217,14 +217,17 @@ export const deleteUser = async (userId: string) => {
 };
 
 // --- AUTH FIX (Important!) ---
-// This temporary function prevents your app from crashing.
-// It returns a "fake" logged-in user so you can test the booking system immediately.
-export const getCurrentUser = (): Player => {
+// Adjusted to return null so we can test Login/Register flow
+export const getCurrentUser = (): Player | null => {
+    return null;
+    /* 
+    // Mock for testing logged in state:
     return {
-        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', // Matches the ID we used in the booking page
+        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
         name: 'President (Test)',
         elo: 1200,
         wins: 0,
         matchesPlayed: 0
     };
+    */
 };

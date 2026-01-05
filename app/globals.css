@@ -1,54 +1,47 @@
 :root {
-  /* Brand Colors - Padel Court Inspired */
-  --primary: 210 100% 50%; /* Vibrant Blue */
+  /* Midnight Professional Theme */
+  --background: 222 47% 5%;
+  /* Slate 950 #020617 */
+  --foreground: 0 0% 100%;
+
+  --card: 222 47% 11%;
+  /* Slate 900 #0f172a */
+  --card-foreground: 0 0% 100%;
+
+  --card-border: 215 28% 17%;
+
+  --primary: 217 91% 60%;
+  /* Electric Blue */
   --primary-foreground: 0 0% 100%;
-  
-  --secondary: 142 76% 36%; /* Padel Green */
-  --secondary-foreground: 0 0% 100%;
 
-  --accent: 210 100% 96%; /* Very Light Blue */
-  --accent-foreground: 222 47% 11%;
+  --secondary: 142 71% 45%;
+  /* Neon Green */
+  --secondary-foreground: 222 47% 11%;
 
-  /* Neutral Colors */
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 210 100% 50%;
+  --accent: 217 33% 13%;
+  --accent-foreground: 0 0% 100%;
 
-  /* Status Colors */
-  --success: 142 76% 36%;
+  --border: 215 28% 17%;
+  --input: 215 28% 17%;
+  --ring: 217 91% 60%;
+
+  --success: 142 71% 45%;
   --warning: 38 92% 50%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
 
-  /* Radius */
-  --radius: 0.75rem;
+  --radius: 1rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-
-    --card: 222 47% 13%;
-    --card-foreground: 210 40% 98%;
-
-    --primary: 210 100% 60%;
-    --primary-foreground: 222 47% 11%;
-
-    --secondary: 142 70% 50%;
-    --secondary-foreground: 222 47% 11%;
-
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
+    --background: 222 47% 5%;
+    --foreground: 0 0% 100%;
+    --card: 222 47% 11%;
+    --card-foreground: 0 0% 100%;
+    --primary: 217 91% 60%;
+    --secondary: 142 71% 45%;
+    --border: 215 28% 17%;
   }
 }
 
@@ -68,10 +61,12 @@ body {
 
 /* Utility Classes */
 .container {
-  max-width: 600px; /* Mobile-first limit */
+  max-width: 600px;
+  /* Mobile-first limit */
   margin: 0 auto;
   padding: 1rem;
-  padding-bottom: 80px; /* Space for bottom nav */
+  padding-bottom: 80px;
+  /* Space for bottom nav */
   min-height: 100vh;
 }
 
@@ -80,28 +75,42 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: var(--radius);
-  font-weight: 500;
-  transition: all 0.2s;
-  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  /* Punchier font weight */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0.75rem 1.75rem;
   border: none;
   cursor: pointer;
   font-size: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.025em;
+}
+
+.btn:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 .btn-primary {
-  background-color: hsl(var(--primary));
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(210, 100%, 45%) 100%);
   color: hsl(var(--primary-foreground));
 }
 
 .btn-secondary {
-  background-color: hsl(var(--secondary));
+  background: linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(142, 76%, 32%) 100%);
   color: hsl(var(--secondary-foreground));
 }
 
 .btn-outline {
   background-color: transparent;
-  border: 1px solid hsl(var(--border));
+  border: 2px solid hsl(var(--border));
   color: hsl(var(--foreground));
+  box-shadow: none;
 }
 
 .card {
@@ -128,10 +137,24 @@ body {
   outline-offset: 2px;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 800;
+  /* Extra bold for punchiness */
+  line-height: 1.1;
+  margin-bottom: 0.75em;
+  letter-spacing: -0.025em;
+}
+
+.text-data {
+  font-family: "SF Mono", "Roboto Mono", monospace;
+  /* Monospace for data */
+  letter-spacing: -0.05em;
   font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 0.5em;
 }
 
 a {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarPlus, Trophy, User, Users } from 'lucide-react';
+import { Home, CalendarPlus, Trophy, User, Users, PlusCircle } from 'lucide-react';
 import styles from './BottomNav.module.css';
 
 export default function BottomNav() {
@@ -16,14 +16,15 @@ export default function BottomNav() {
                 <Home size={24} />
                 <span>Home</span>
             </Link>
-            <Link href="/book" className={`${styles.link} ${isActive('/book') ? styles.active : ''}`}>
-                <CalendarPlus size={24} />
-                <span>Book</span>
-            </Link>
             <Link href="/matches" className={`${styles.link} ${isActive('/matches') ? styles.active : ''}`}>
                 <Trophy size={24} />
                 <span>Matches</span>
             </Link>
+            <div className={styles.floatingContainer}>
+                <Link href="/book" className={styles.floatingBtn}>
+                    <PlusCircle size={28} />
+                </Link>
+            </div>
             <Link href="/community" className={`${styles.link} ${isActive('/community') ? styles.active : ''}`}>
                 <Users size={24} />
                 <span>Community</span>

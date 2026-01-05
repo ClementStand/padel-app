@@ -139,3 +139,149 @@ a.secondary {
     --button-secondary-border: #1a1a1a;
   }
 }
+
+.playerRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 6px;
+  margin: 0 -0.5rem;
+}
+
+.playerRow:hover {
+  background-color: hsl(var(--accent));
+}
+
+.playerRow:not(:last-child) {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.participant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  width: 60px;
+  cursor: pointer;
+}
+
+.participantAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: hsl(var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  transition: transform 0.2s ease;
+}
+
+.participant:hover .participantAvatar {
+  transform: scale(1.1);
+}
+
+/* Midnight Theme Components */
+.heroCard {
+  background: linear-gradient(135deg, hsl(220, 80%, 30%) 0%, hsl(270, 60%, 40%) 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 30px -5px rgba(59, 130, 246, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 10;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background-color: hsl(var(--card));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Slight white border */
+  border-radius: var(--radius);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.5);
+  /* Heavier shadow for depth */
+}
+
+.statValue {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 0.5rem;
+}
+
+.statLabel {
+  color: hsl(var(--foreground));
+  opacity: 0.7;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.glowBadge {
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(270, 70%, 50%));
+  padding: 4px 12px;
+  border-radius: 9999px;
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 0 15px hsl(var(--primary));
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.matchList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.matchItem {
+  background-color: hsl(var(--card));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.matchItem:hover {
+  background-color: hsl(var(--accent));
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
