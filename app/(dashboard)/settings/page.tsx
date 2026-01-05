@@ -4,18 +4,17 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LogOut, User, Bell, Moon } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 
-export default function SettingsPage() {
+// 1. We define the logic inside a non-exported component
+function SettingsContent() {
     const router = useRouter();
-    const [mounted, setMounted] = useState(false); // <--- The Fix
     const [loading, setLoading] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
 
-    // 1. Wait until the component runs in the browser
     useEffect(() => {
-        setMounted(true);
-        // Only access localStorage after we know we are in the browser
+        // Safe to use window/localStorage here
         const isDark = localStorage.getItem('theme') === 'dark';
         setDarkMode(isDark);
     }, []);
@@ -23,7 +22,7 @@ export default function SettingsPage() {
     const handleLogout = async () => {
         setLoading(true);
         await supabase.auth.signOut();
-        localStorage.clear(); // Safe because this function only runs on click
+        localStorage.clear();
         router.push('/login');
     };
 
@@ -32,12 +31,6 @@ export default function SettingsPage() {
         setDarkMode(newMode);
         localStorage.setItem('theme', newMode ? 'dark' : 'light');
     };
-
-    // 2. If we are on the server (not mounted yet), render NOTHING.
-    // This prevents the "window not defined" crash completely.
-    if (!mounted) {
-        return null;
-    }
 
     return (
         <div style={{ padding: '1rem' }}>
@@ -77,3 +70,11 @@ export default function SettingsPage() {
         </div>
     );
 }
+
+// 2. We export a "Safe" version that only loads in the browser
+const SettingsPage = dynamic(() => Promise.resolve(SettingsContent), {
+    ssr: false, // This forces the server to skip this component entirely
+    loading: () => <div style={{ padding: '2rem' }}>Loading settings...</div>
+});
+
+export default SettingsPage;
