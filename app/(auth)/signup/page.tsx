@@ -61,8 +61,8 @@ export default function SignupPage() {
 
                     if (uploadError) {
                         console.error('Error uploading avatar:', uploadError);
-                        // Don't fail the whole signup, but warn
-                        alert("Account created, but avatar upload failed. You can update it later.");
+                        // Show detailed error to help debugging
+                        alert(`Account created, but avatar upload failed: ${uploadError.message}`);
                     } else {
                         // Update profile with avatar URL if needed, 
                         // or rely on a consistent path convention / public URL construction.

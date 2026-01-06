@@ -7,6 +7,7 @@ import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
 import EloChart from '@/components/EloChart';
 import { getCurrentUser, getBookings, getPlayers, getMatches, Player, Booking } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 // Mock Data for Feed
@@ -24,7 +25,17 @@ export default function Home() {
   useEffect(() => {
     async function loadData() {
       // 1. Get User
-      const currentUser = getCurrentUser();
+      // 1. Get User
+      const currentUser = await getCurrentUser();
+
+      if (!currentUser) {
+        // Session might exist but profile/user fetch failed. Redirect to login.
+        // Also sign out to clear potentially bad session.
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
+
       setUser(currentUser);
 
       // 2. Get Upcoming Bookings
@@ -97,27 +108,10 @@ export default function Home() {
   }, [user]);
 
   // Determine next match for Hero section
-  // Determine next match for Hero section
   const nextMatch = upcoming[0];
 
   if (!user) {
-    return (
-      <main style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'hsl(var(--primary))' }}>ESADE Padel 🎾</h1>
-          <p style={{ opacity: 0.7 }}>Join the club. Play the game.</p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '300px' }}>
-          <Link href="/login" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-            Log In
-          </Link>
-          <Link href="/signup" className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }}>
-            Create Profile
-          </Link>
-        </div>
-      </main>
-    );
+    return <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.7, paddingTop: '40vh' }}>Loading Dashboard...</div>;
   }
 
   return (

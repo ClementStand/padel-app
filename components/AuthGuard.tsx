@@ -13,10 +13,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 router.push('/login');
+                return; // ⛔️ Stop here! Don't setLoading(false) so children never render.
             }
             setLoading(false);
         };
-        
+
         checkUser();
     }, [router]);
 

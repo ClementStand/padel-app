@@ -216,18 +216,46 @@ export const deleteUser = async (userId: string) => {
     }
 };
 
-// --- AUTH FIX (Important!) ---
-// Adjusted to return null so we can test Login/Register flow
-export const getCurrentUser = (): Player | null => {
-    return null;
-    /* 
-    // Mock for testing logged in state:
-    return {
-        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        name: 'President (Test)',
-        elo: 1200,
-        wins: 0,
-        matchesPlayed: 0
-    };
-    */
+// --- AUTH ---
+export const getCurrentUser = async (): Promise<Player | null> => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        // Fetch profile details
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        if (error || !profile) {
+            console.error('Error fetching profile:', error);
+            // Fallback for new users who might not have a profile yet? 
+            // Or return basic info from auth
+            return {
+                id: user.id,
+                name: user.user_metadata.full_name || 'Unknown',
+                elo: 1200,
+                wins: 0,
+                matchesPlayed: 0
+            };
+        }
+
+        return {
+            id: profile.id,
+            name: profile.full_name || 'Unknown',
+            elo: profile.elo || 1200,
+            wins: profile.wins || 0,
+            matchesPlayed: profile.matches_played || 0,
+            country: profile.country,
+            course: profile.course,
+            year: profile.year,
+            dob: profile.dob,
+            avatar: profile.avatar_url
+        };
+    } catch (e) {
+        console.error("Error in getCurrentUser:", e);
+        return null;
+    }
 };
