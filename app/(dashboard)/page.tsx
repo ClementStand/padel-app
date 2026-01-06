@@ -152,6 +152,57 @@ export default function Home() {
   // Determine next match for Hero section
   const nextMatch = upcoming[0];
 
+  const handleLeave = async (bookingId: string, matchDateStr: string) => {
+    // 12h Check
+    const matchDate = new Date(matchDateStr);
+    const now = new Date();
+    const diffHrs = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (diffHrs < 12) {
+      if (!confirm("WARNING: Cancelling within 12 hours of the match start results in a penalty. The club admin will be notified. Are you sure you want to leave?")) {
+        return;
+      }
+    } else {
+      if (!confirm("Are you sure you want to leave this match?")) return;
+    }
+
+    try {
+      // Dynamic import to avoid SSR issues if needed, but here simple import is fine if client component
+      const { leaveMatch } = await import('@/lib/store');
+      await leaveMatch(bookingId);
+      alert("You have left the match.");
+      setSelectedMatch(null);
+      await refreshAll();
+    } catch (e: any) {
+      alert("Error leaving match: " + e.message);
+    }
+  };
+
+  const handleInvite = async () => {
+    // Simple Join Link
+    const url = window.location.origin + '/book?join=' + nextMatch?.id;
+    const text = `Join my Padel Match at ${nextMatch?.clubName}! ${url}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Padel Match Invite',
+          text: text,
+          url: url
+        });
+      } catch (e) {
+        console.log('Share failed', e);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("Invite link copied to clipboard: " + url);
+      } catch (e) {
+        alert("Share not supported. Copy this: " + url);
+      }
+    }
+  };
+
   if (!user) {
     return <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.7, paddingTop: '40vh' }}>Loading Dashboard...</div>;
   }
@@ -192,7 +243,7 @@ export default function Home() {
       </header>
 
       {/* 2. Hero Section (Next Match) */}
-      <section className={styles.heroCard}>
+      <section className={styles.heroCard} onClick={() => nextMatch && openMatchDetails(nextMatch)} style={{ cursor: nextMatch ? 'pointer' : 'default' }}>
         <div className={styles.heroContent}>
           {nextMatch ? (
             <>
@@ -219,10 +270,16 @@ export default function Home() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', flex: 1, cursor: 'default' }}>
+                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', flex: 1, cursor: 'pointer' }} onClick={(e) => {
+                      e.stopPropagation();
+                      handleInvite();
+                    }}>
                       Invite Friends
                     </button>
-                    <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>
+                    <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }} onClick={(e) => {
+                      e.stopPropagation();
+                      if (nextMatch) window.location.href = `/chat/${nextMatch.id}`;
+                    }}>
                       Chat
                     </button>
                   </div>
@@ -245,7 +302,7 @@ export default function Home() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem' }}>
-                    <Link href={`/matches`} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', flex: 1, fontWeight: 700 }}>
+                    <Link href={`/matches`} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', flex: 1, fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>
                       Enter Score
                     </Link>
                     <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>

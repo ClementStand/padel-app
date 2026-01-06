@@ -271,6 +271,31 @@ export const joinMatch = async (bookingId: string) => {
     if (error) throw error;
 };
 
+export const leaveMatch = async (bookingId: string) => {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Must be logged in");
+
+    // 1. Get Booking
+    const { data: booking } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
+    if (!booking) throw new Error("Booking not found");
+
+    // 2. Identify which slot user is in
+    let slotToUpdate = '';
+    if (booking.player_1_id === user.id) slotToUpdate = 'player_1_id';
+    else if (booking.player_2_id === user.id) slotToUpdate = 'player_2_id';
+    else if (booking.player_3_id === user.id) slotToUpdate = 'player_3_id';
+    else if (booking.player_4_id === user.id) slotToUpdate = 'player_4_id';
+    else throw new Error("You are not in this match");
+
+    // 3. Update (Clear slot)
+    const { error } = await supabase
+        .from('bookings')
+        .update({ [slotToUpdate]: null })
+        .eq('id', bookingId);
+
+    if (error) throw error;
+};
+
 export const saveMatch = async (match: Match) => {
     // We need to map our Match object to the db columns if they differ, 
     // or just insert if they match.
@@ -344,15 +369,41 @@ export const getCurrentUser = async (): Promise<Player | null> => {
             .single();
 
         if (error || !profile) {
-            console.error('Error fetching profile:', error);
-            // Fallback for new users who might not have a profile yet? 
-            // Or return basic info from auth
-            return {
+            console.error('Profile missing, attempting self-healing...', error);
+
+            // Self-healing: Create profile if missing
+            const newProfile = {
                 id: user.id,
-                name: user.user_metadata.full_name || 'Unknown',
+                full_name: user.user_metadata.full_name || 'Player',
                 elo: 1200,
                 wins: 0,
-                matchesPlayed: 0
+                matches_played: 0,
+                avatar_url: user.user_metadata.avatar_url || ''
+            };
+
+            const { error: insertError } = await supabase.from('profiles').upsert([newProfile]);
+
+            if (insertError) {
+                console.error("Failed to auto-create profile:", insertError);
+                // Fallback only if insert fails
+                return {
+                    id: user.id,
+                    name: user.user_metadata.full_name || 'Unknown',
+                    elo: 1200,
+                    wins: 0,
+                    matchesPlayed: 0
+                };
+            }
+
+            // Return the new profile
+            return {
+                id: user.id,
+                name: newProfile.full_name,
+                elo: newProfile.elo,
+                wins: newProfile.wins,
+                matchesPlayed: newProfile.matches_played,
+                avatar: newProfile.avatar_url,
+                isAdmin: false
             };
         }
 

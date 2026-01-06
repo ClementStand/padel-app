@@ -11,7 +11,7 @@ interface MatchDetailsModalProps {
     currentUserId: string;
 }
 
-export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, currentUserId }: MatchDetailsModalProps) {
+export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, onLeave, currentUserId }: MatchDetailsModalProps & { onLeave?: (id: string, date: string) => void }) {
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
 
     if (!isOpen || !booking) return null;
@@ -64,6 +64,24 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, cu
                             <MapPin size={16} /> <span>{booking.clubName}</span>
                         </div>
                     </div>
+
+                    <div style={{
+                        marginTop: '16px', borderRadius: '12px', overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.1)', height: '150px', background: '#334155'
+                    }}>
+                        <iframe
+                            width="100%"
+                            height="100%"
+                            style={{ border: 0 }}
+                            loading="lazy"
+                            allowFullScreen
+                            src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                booking.clubName === 'Santcu Padel' ? 'Avinguda de Cerdanyola, 115, 08290 Sant Cugat del Vallès, Barcelona' :
+                                    booking.clubName === 'Padel Tibidabo' ? 'Carrer de Roman Macaya, 11, Sarrià-Sant Gervasi, 08022 Barcelona' :
+                                        booking.clubName
+                            )}&output=embed`}
+                        />
+                    </div>
                 </div>
 
                 {/* Players Grid */}
@@ -109,7 +127,19 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, cu
                                 Join Match
                             </button>
                         ) : isParticipant ? (
-                            <div style={{ textAlign: 'center', opacity: 0.7, padding: '10px' }}>You are in this match</div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-outline" style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }}
+                                    onClick={() => onLeave && onLeave(booking.id, booking.date + ' ' + booking.time)}>
+                                    Cancel / Leave
+                                </button>
+                                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
+                                    // Chat Link
+                                    const url = `/chat/${booking.id}`;
+                                    window.location.href = url;
+                                }}>
+                                    Open Chat
+                                </button>
+                            </div>
                         ) : (
                             <div style={{ textAlign: 'center', opacity: 0.7, padding: '10px' }}>Match Full</div>
                         )}
@@ -117,6 +147,6 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, cu
                 </div>
 
             </div>
-        </div>
+        </div >
     );
 }
