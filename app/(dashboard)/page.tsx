@@ -6,7 +6,7 @@ import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles } from 'lucid
 import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
 import EloChart from '@/components/EloChart';
-import { getCurrentUser, getBookings, getPlayers, getMatches, Player, Booking } from '@/lib/store';
+import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, Player, Booking } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
@@ -64,45 +64,8 @@ export default function Home() {
     if (!user) return;
     async function loadRecs() {
       if (!user) return;
-      const allMatches = await getMatches();
-      const allBookings = await getBookings();
-
-      // 1. Find recent players (teammates or opponents)
-      const recentPlayers = new Set<string>();
-      // Simple string matching since we don't have structured IDs in Match yet
-      // 'You (Clement)' is the user name in mock data. 
-      // We splits names by ' & ' 
-      allMatches.forEach(m => {
-        const p1 = m.team1Names.split(' & ');
-        const p2 = m.team2Names.split(' & ');
-        const allInMatch = [...p1, ...p2];
-
-        // If user was in this match
-        if (allInMatch.some(name => name.includes('Clement') || name.includes(user.name))) {
-          allInMatch.forEach(name => {
-            if (!name.includes('Clement') && !name.includes(user.name)) {
-              recentPlayers.add(name);
-            }
-          });
-        }
-      });
-
-      // 2. Find pending bookings with these players
-      // Pending means < 4 players or status 'pending' (if using admin flow properly)
-      // We'll check for < 4 players mainly
-      const found = allBookings.find(b => {
-        // Safe check for participants
-        const parts = (b as any).participants || []; // Type assertion until fixed in store
-        if (parts.length >= 4) return false;
-
-        // Check if any participant is in our recent list
-        return parts.some((p: any) => {
-          // We have to match loose strings again because 'Javi Martinez' vs 'Javi'
-          return Array.from(recentPlayers).some(rp => rp.includes(p.name) || p.name.includes(rp));
-        });
-      });
-
-      setRecommendedBooking(found || null);
+      const recs = await getRecommendedMatches(user.id);
+      setRecommendedBooking(recs[0] || null);
     }
     loadRecs();
   }, [user]);

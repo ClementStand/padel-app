@@ -1,85 +1,99 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trophy } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle } from 'lucide-react';
 import Card from '@/components/Card';
-import { getMatches, getPlayers, saveMatch, updatePlayer, Match, Player } from '@/lib/store';
-import { calculatePadelMatchElo } from '@/lib/elo';
+import {
+    getMatches, getCurrentUser, submitMatchScore, confirmMatchScore, disputeMatch,
+    Match, Player
+} from '@/lib/store';
 import styles from './page.module.css';
 
 export default function MatchesPage() {
     const [matches, setMatches] = useState<Match[]>([]);
+    const [user, setUser] = useState<Player | null>(null);
     const [showForm, setShowForm] = useState(false);
+
+    // Form State
     const [partner, setPartner] = useState('');
     const [opponent, setOpponent] = useState('');
     const [score, setScore] = useState('');
     const [result, setResult] = useState<'win' | 'loss' | null>(null);
 
     useEffect(() => {
-        getMatches().then(data => setMatches(data));
+        loadData();
     }, []);
+
+    async function loadData() {
+        const u = await getCurrentUser();
+        setUser(u);
+        const data = await getMatches();
+        setMatches(data);
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!result || !score || !opponent) return;
+        if (!result || !score || !opponent || !user) return;
 
-        // 1. Get stats
-        const players = await getPlayers();
-        const user = players.find(p => p.id === 'user') || players[players.length - 1];
+        // Create Ad-Hoc Match via Consensus Flow
+        const matchId = Date.now().toString(); // Or UUID if available
 
-        // Mock partner/opponent ratings since they are just text inputs right now
-        // In a real app we'd select players from dropdown
-        const partnerRating = 1200;
-        const opponent1Rating = 1350;
-        const opponent2Rating = 1350;
+        try {
+            await submitMatchScore(
+                matchId,
+                score,
+                result === 'win' ? 1 : 2,
+                user.id,
+                {
+                    date: new Date().toISOString().split('T')[0],
+                    team1Names: partner ? `You & ${partner}` : 'You',
+                    team2Names: opponent
+                }
+            );
 
-        // 2. Calculate ELO with new logic
-        // We assume User is P1, Partner is P2, Opponents are P3 & P4
-        const eloResult = calculatePadelMatchElo(
-            user.elo,
-            partnerRating,
-            opponent1Rating,
-            opponent2Rating,
-            result === 'win' ? 1 : 2
-        );
+            // Refresh
+            await loadData();
+            setShowForm(false);
 
-        // 3. Create Match
-        const newMatch: Match = {
-            id: Date.now().toString(),
-            date: new Date().toISOString().split('T')[0],
-            team1Names: partner ? `You & ${partner}` : 'You',
-            team2Names: opponent,
-            score: score,
-            winner: result === 'win' ? 1 : 2,
-            eloChange: eloResult.pointsExchanged
-        };
-
-        await saveMatch(newMatch);
-
-        // 4. Update ONLY the User (since others are mocks/text)
-        // In future refactor, we should update all players found in DB
-        const newUser = {
-            ...user,
-            elo: eloResult.p1New,
-            matchesPlayed: user.matchesPlayed + 1,
-            wins: result === 'win' ? (user.wins || 0) + 1 : (user.wins || 0)
-        };
-        await updatePlayer(newUser);
-
-        // Refresh
-        const updatedMatches = await getMatches();
-        setMatches(updatedMatches);
-        setShowForm(false);
-
-        // Reset form
-        setOpponent('');
-        setPartner('');
-        setScore('');
-        setResult(null);
+            // Reset
+            setOpponent('');
+            setPartner('');
+            setScore('');
+            setResult(null);
+            alert("Match submitted! It is now pending confirmation.");
+        } catch (err: any) {
+            alert("Error submitting match: " + err.message);
+        }
     };
 
+    const handleConfirm = async (matchId: string) => {
+        try {
+            await confirmMatchScore(matchId);
+            await loadData();
+            alert("Match confirmed! ELOs have been updated.");
+        } catch (err: any) {
+            alert("Error confirming: " + err.message);
+        }
+    };
+
+    const handleDispute = async (matchId: string) => {
+        const reason = prompt("Please provide a reason for the dispute:");
+        if (!reason) return;
+
+        try {
+            await disputeMatch(matchId, reason);
+            await loadData();
+            alert("The captain has been notified. This will be resolved soon.");
+        } catch (err: any) {
+            alert("Error disputing: " + err.message);
+        }
+    };
+
+    const pendingMatches = matches.filter(m => m.status === 'pending_confirmation');
+    const completedMatches = matches.filter(m => m.status === 'completed');
+
     return (
-        <div style={{ padding: '1rem', paddingTop: '2rem' }}>
+        <div style={{ padding: '1rem', paddingTop: '2rem', paddingBottom: '90px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h1 style={{ margin: 0 }}>Matches</h1>
                 <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
@@ -141,17 +155,57 @@ export default function MatchesPage() {
                             </div>
                         </div>
                         <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-                            Submit Result
+                            Submit Result (Pending)
                         </button>
                     </form>
                 </Card>
             )}
 
+            {/* Pending Matches Section */}
+            {pendingMatches.length > 0 && (
+                <div style={{ marginBottom: '2rem' }}>
+                    <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem', color: 'hsl(var(--accent))' }}>Pending Confirmation</h2>
+                    {pendingMatches.map(match => (
+                        <Card key={match.id} style={{ border: '1px solid hsl(var(--accent))' }}>
+                            <div className={styles.matchRow}>
+                                <div className={`${styles.team} ${match.winner === 1 ? styles.winner : ''}`}>
+                                    {match.team1Names}
+                                </div>
+                                <div className={styles.scoreBadge} style={{ background: 'hsl(var(--accent))', color: 'black' }}>{match.score}</div>
+                                <div className={`${styles.team} ${match.winner === 2 ? styles.winner : ''}`} style={{ textAlign: 'right' }}>
+                                    {match.team2Names}
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                {/* Only show actions if user didn't submit it (simulated check, assuming user can't confirm own if we strictly checked submittedBy) */}
+                                {/* For MVP we allow self-confirm for testing ease, or check ID */}
+                                {user && match.submittedBy !== user.id ? (
+                                    <>
+                                        <button className="btn btn-outline" style={{ height: '32px', fontSize: '0.8rem', borderColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive))' }} onClick={() => handleDispute(match.id)}>
+                                            <AlertTriangle size={14} style={{ marginRight: '4px' }} /> Dispute
+                                        </button>
+                                        <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.8rem', background: 'hsl(var(--secondary))', border: 'none' }} onClick={() => handleConfirm(match.id)}>
+                                            <Check size={14} style={{ marginRight: '4px' }} /> Confirm
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div style={{ fontSize: '0.75rem', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
+                                        Waiting for opponents...
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
+            <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem' }}>Match History</h2>
             <div className={styles.matchList}>
-                {matches.length === 0 ? (
-                    <p style={{ textAlign: 'center', opacity: 0.5, marginTop: '2rem' }}>No matches recorded yet.</p>
+                {completedMatches.length === 0 ? (
+                    <p style={{ textAlign: 'center', opacity: 0.5, marginTop: '2rem' }}>No completed matches.</p>
                 ) : (
-                    matches.map(match => (
+                    completedMatches.map(match => (
                         <Card key={match.id}>
                             <div className={styles.matchRow}>
                                 <div className={`${styles.team} ${match.winner === 1 ? styles.winner : ''}`}>

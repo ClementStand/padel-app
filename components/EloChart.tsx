@@ -2,20 +2,24 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+import { EloHistory } from '@/lib/store';
+
 interface EloChartProps {
     currentElo: number;
+    history: EloHistory[];
 }
 
-export default function EloChart({ currentElo }: EloChartProps) {
-    // Generate mock history
-    const data = [
-        { month: 'Jan', elo: currentElo - 150 },
-        { month: 'Feb', elo: currentElo - 120 },
-        { month: 'Mar', elo: currentElo - 80 },
-        { month: 'Apr', elo: currentElo - 40 },
-        { month: 'May', elo: currentElo - 10 },
-        { month: 'Jun', elo: currentElo },
-    ];
+export default function EloChart({ currentElo, history }: EloChartProps) {
+    // Process history for chart
+    const data = history.length > 0
+        ? history.map(h => ({
+            date: new Date(h.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            elo: h.newElo
+        }))
+        : [ // Fallback if no history yet
+            { date: 'Start', elo: 1200 },
+            { date: 'Now', elo: currentElo }
+        ];
 
     return (
         <div style={{ width: '100%', height: 250, fontSize: '0.8rem' }}>
@@ -29,7 +33,7 @@ export default function EloChart({ currentElo }: EloChartProps) {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis
-                        dataKey="month"
+                        dataKey="date"
                         stroke="hsl(var(--foreground)/0.5)"
                         tickLine={false}
                         axisLine={false}
