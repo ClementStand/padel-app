@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles } from 'lucide-react';
 import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
-import MatchDetailsModal from '@/components/MatchDetailsModal'; // NEW
+import OnboardingModal from '@/components/OnboardingModal';
+import MatchDetailsModal from '@/components/MatchDetailsModal';
+import PlayerCardModal from '@/components/PlayerCardModal'; // NEW
 import EloChart from '@/components/EloChart';
 import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, Player, Booking, Match } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +21,8 @@ export default function Home() {
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [currentStreak, setCurrentStreak] = useState(0);
+
+  const [selectedPlayerForCard, setSelectedPlayerForCard] = useState<any | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -357,11 +361,15 @@ export default function Home() {
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
                         {match.participants?.map(p => (
-                          <div key={p.id} style={{
+                          <div key={p.id} onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPlayerForCard({ ...p, matchesPlayed: 0, wins: 0 }); // Passing partial player, modal handles basic display. Ideally fetch full player but for MVP display name/avatar is ok.
+                          }} style={{
                             width: '28px', height: '28px', borderRadius: '50%',
                             background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.7rem', color: 'black', fontWeight: 'bold'
+                            fontSize: '0.7rem', color: 'black', fontWeight: 'bold',
+                            cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)'
                           }}>
                             {!p.avatar && p.name.charAt(0)}
                           </div>
@@ -396,6 +404,14 @@ export default function Home() {
         isOpen={!!selectedMatch}
         onClose={() => setSelectedMatch(null)}
         onJoin={handleJoin}
+        currentUserId={user?.id || ''}
+      />
+
+      {/* Player Card Modal */}
+      <PlayerCardModal
+        player={selectedPlayerForCard}
+        isOpen={!!selectedPlayerForCard}
+        onClose={() => setSelectedPlayerForCard(null)}
         currentUserId={user?.id || ''}
       />
 
@@ -450,9 +466,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Top Players/Stats (Optional - keeping but pushing down or hiding? User didn't ask for it explicitly in new layout list, but 'Leaderboard' is in nav. Let's keep a simplified version or hide. User said "List of match results" is recent activity. Bottom nav has leaderboard. I'll hide Top Players from home to keep it clean as requested) */}
-
-
+      {/* Onboarding Modal */}
+      {user && user.elo === 0 && (
+        <OnboardingModal
+          isOpen={true}
+          onComplete={async () => {
+            // Refresh user to get new ELO
+            const u = await getCurrentUser();
+            setUser(u);
+            // Also refresh recs as they depend on ELO
+            loadRecs();
+          }}
+        />
+      )}
 
     </main >
   );

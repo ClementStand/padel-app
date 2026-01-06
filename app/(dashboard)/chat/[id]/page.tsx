@@ -112,9 +112,12 @@ export default function MatchChat({ params }: { params: { id: string } }) {
 
     return (
         <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: '#0f172a', color: 'white', zIndex: 9999,
-            display: 'flex', flexDirection: 'column'
+            height: '100%', // Use available height from dashboard layout
+            maxHeight: 'calc(100vh - 20px)', // Fallback constraint
+            display: 'flex', flexDirection: 'column',
+            background: '#0f172a', color: 'white',
+            borderRadius: '24px', overflow: 'hidden', // Add rounding to fit dashboard style
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
         }}>
             {/* Header */}
             <div style={{

@@ -1,13 +1,14 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, Shield, User as UserIcon, Award, LogOut } from 'lucide-react';
+import { Settings, Shield, User as UserIcon, Award, LogOut, Edit2, Check, X, Hand, MapPin } from 'lucide-react';
 import Card from '@/components/Card';
 import EloChart from '@/components/EloChart';
-import { getPlayers, getCurrentUser, getEloHistory, getMatches, Player, EloHistory, Match } from '@/lib/store';
-import { supabase } from '@/lib/supabase'; // Import the real auth
+import { getPlayers, getCurrentUser, getEloHistory, getMatches, updatePlayer, Player, EloHistory, Match } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 export default function ProfilePage() {
@@ -16,6 +17,10 @@ export default function ProfilePage() {
     const [history, setHistory] = useState<EloHistory[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Edit Mode State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editForm, setEditForm] = useState<{ handedness: 'right' | 'left', courtSide: 'left' | 'right' | 'both' }>({ handedness: 'right', courtSide: 'both' });
 
     useEffect(() => {
         const loadData = async () => {
@@ -27,14 +32,16 @@ export default function ProfilePage() {
                     return;
                 }
                 setUser(currentUser);
+                setEditForm({
+                    handedness: currentUser.handedness || 'right',
+                    courtSide: currentUser.courtSide || 'both'
+                });
 
                 // Fetch History & Matches
                 const h = await getEloHistory(currentUser.id);
                 setHistory(h);
 
                 const m = await getMatches();
-                // Filter matches where user participated
-                // Simplified check: if user created it or name is in it (mock logic for names)
                 const userMatches = m.filter(match =>
                     match.team1Names.includes('You') || match.team1Names.includes(currentUser.name) ||
                     match.team2Names.includes('You') || match.team2Names.includes(currentUser.name)
@@ -51,52 +58,37 @@ export default function ProfilePage() {
         loadData();
     }, [router]);
 
+    const handleSave = async () => {
+        if (!user) return;
+        try {
+            await updatePlayer({
+                id: user.id,
+                handedness: editForm.handedness,
+                courtSide: editForm.courtSide
+            });
+            setUser(prev => prev ? ({ ...prev, ...editForm }) : null);
+            setIsEditing(false);
+            alert("Profile updated!");
+        } catch (e: any) {
+            alert("Error saving: " + e.message);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         if (typeof window !== 'undefined') localStorage.clear();
         router.push('/login');
     };
 
-    const getFlag = (code?: string) => {
-        if (!code) return '🌍';
-        const map: Record<string, string> = { 'ES': '🇪🇸', 'FR': '🇫🇷', 'IT': '🇮🇹', 'PT': '🇵🇹', 'DE': '🇩🇪', 'UK': '🇬🇧', 'BE': '🇧🇪', 'NL': '🇳🇱', 'SE': '🇸🇪' };
-        return map[code] || '🌍';
-    };
-
-    const getAge = (dob?: string) => {
-        if (!dob) return '';
-        const diff = Date.now() - new Date(dob).getTime();
-        const age = new Date(diff).getUTCFullYear() - 1970;
-        return `${age} yo`;
-    };
-
-    // Calculate Streak
     const calculateStreak = () => {
         let streak = 0;
-        // Sort matches by date desc (getMatches already does, but ensure)
-        // We need to know if user WON.
-        // Assuming 'You' is always team 1 in our mock creations or checking name logic
-        // This is tricky with plain string names. relying on store.ts 'submitMatchScore' logic where 'You' is Team 1 ??
-        // Actually store.ts `submitMatchScore` puts `partner ? You & Partner : You` as Team 1.
-        // So for matches submitted by user, User is Team 1.
-        // For matches submitted by others, User might be Team 2.
-
         for (const m of matches) {
             if (m.status !== 'completed') continue;
-
-            // Check if user is Team 1
             const isTeam1 = m.team1Names.includes('You') || (user && m.team1Names.includes(user.name));
             const isTeam2 = m.team2Names.includes('You') || (user && m.team2Names.includes(user.name));
-
-            if (!isTeam1 && !isTeam2) continue; // Should have been filtered already but sanity check
-
+            if (!isTeam1 && !isTeam2) continue;
             const userWon = (isTeam1 && m.winner === 1) || (isTeam2 && m.winner === 2);
-
-            if (userWon) {
-                streak++;
-            } else {
-                break; // Streak broken
-            }
+            if (userWon) streak++; else break;
         }
         return streak;
     };
@@ -107,37 +99,79 @@ export default function ProfilePage() {
     if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>User not found</div>;
 
     return (
-        <div style={{ padding: '1rem', paddingTop: '2rem', paddingBottom: '90px' }}>
-            <header className={styles.header}>
-                <div className={styles.avatar}>
-                    <UserIcon size={40} color="white" />
+        <div style={{ padding: '1rem', paddingTop: '1.5rem', paddingBottom: '90px' }}>
+            {/* Header Card */}
+            <div style={{
+                background: 'linear-gradient(to bottom right, #1e293b, #0f172a)', borderRadius: '24px',
+                padding: '24px', textAlign: 'center', position: 'relative', border: '1px solid rgba(255,255,255,0.05)',
+                marginBottom: '2rem'
+            }}>
+                <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%' }}
+                >
+                    {isEditing ? <X size={20} /> : <Edit2 size={20} />}
+                </button>
+
+                <div style={{
+                    width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 16px auto',
+                    background: user.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(user.avatar).data.publicUrl}) center/cover` : '#334155',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '4px solid rgba(255,255,255,0.1)', fontSize: '2.5rem', fontWeight: 700
+                }}>
+                    {!user.avatar && (user.name.charAt(0) || 'P')}
                 </div>
-                <div className={styles.flagBadge}>
-                    {getFlag(user.country)}
-                </div>
 
-                <h1 className={styles.name}>{user.name}</h1>
-                <p className={styles.details}>
-                    {user.course || 'ESADE Student'}
-                    {user.year ? ` • Year ${user.year}` : ''}
-                </p>
-                {user.dob && <p className={styles.meta}>{getAge(user.dob)}</p>}
-            </header>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '4px' }}>{user.name}</h1>
+                <div style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '16px' }}>{user.country} • {user.course || 'Player'}</div>
 
-            {/* ELO Chart */}
-            <section style={{ marginBottom: '2rem' }}>
-                <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem' }}>Performance History</h2>
-                <Card style={{ padding: '1rem 0' }}>
-                    <EloChart currentElo={user.elo} history={history} />
-                </Card>
-            </section>
+                {isEditing ? (
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Handedness</label>
+                            <select
+                                value={editForm.handedness}
+                                onChange={(e) => setEditForm({ ...editForm, handedness: e.target.value as any })}
+                                style={{ background: '#334155', border: 'none', color: 'white', padding: '8px', borderRadius: '8px' }}
+                            >
+                                <option value="right">Right Handed</option>
+                                <option value="left">Left Handed</option>
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Preferred Side</label>
+                            <select
+                                value={editForm.courtSide}
+                                onChange={(e) => setEditForm({ ...editForm, courtSide: e.target.value as any })}
+                                style={{ background: '#334155', border: 'none', color: 'white', padding: '8px', borderRadius: '8px' }}
+                            >
+                                <option value="left">Left Side</option>
+                                <option value="right">Right Side</option>
+                                <option value="both">Both / Either</option>
+                            </select>
+                        </div>
+                        <button className="btn btn-primary" onClick={handleSave} style={{ marginTop: '8px' }}>
+                            <Check size={16} style={{ marginRight: '8px' }} /> Save Profile
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Hand size={14} /> {user.handedness ? (user.handedness === 'right' ? 'Right Handed' : 'Left Handed') : 'Set Handedness'}
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <MapPin size={14} /> {user.courtSide ? (user.courtSide === 'left' ? 'Left Side' : user.courtSide === 'right' ? 'Right Side' : 'Both Sides') : 'Set Side'}
+                        </div>
+                    </div>
+                )}
+            </div>
 
-            <section className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                    <div className={styles.statLabel}>Current Level</div>
-                    <div className={styles.statValue}>
+            {/* Stats Grid */}
+            <div className={styles.statsGrid} style={{ marginBottom: '2rem' }}>
+                <div className={styles.statCard} style={{ background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(234, 179, 8, 0.05))', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                    <div className={styles.statLabel} style={{ color: '#fbbf24' }}>Current ELO</div>
+                    <div className={styles.statValue} style={{ color: '#fbbf24', textShadow: '0 0 20px rgba(251, 191, 36, 0.3)' }}>
                         {Math.round(user.elo)}
-                        <span className={styles.unit}>ELO</span>
                     </div>
                 </div>
                 <div className={styles.statCard}>
@@ -148,38 +182,24 @@ export default function ProfilePage() {
                 </div>
                 <div className={styles.statCard}>
                     <div className={styles.statLabel}>Streak</div>
-                    <div className={styles.statValue} style={{ color: currentStreak > 2 ? 'hsl(var(--secondary))' : 'white' }}>
-                        {currentStreak} <span className={styles.unit}>{currentStreak === 1 ? 'Win' : 'Wins'}</span>
+                    <div className={styles.statValue} style={{ color: currentStreak > 1 ? 'hsl(var(--success))' : 'white' }}>
+                        {currentStreak}
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <section>
-                <Card className={styles.menuCard}>
-                    <Link href="/settings">
-                        <div className={styles.menuItem}>
-                            <Settings size={20} /> Settings
-                        </div>
-                    </Link>
-                    <div className={styles.menuItem}>
-                        <Award size={20} /> Achievements
-                    </div>
+            {/* ELO Chart */}
+            <section style={{ marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem' }}>Performance History</h2>
+                <Card style={{ padding: '1rem 0' }}>
+                    <EloChart currentElo={user.elo} history={history} />
                 </Card>
-
-                <h3 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Admin Access</h3>
-                <Link href="/admin">
-                    <Card className={styles.menuCard}>
-                        <div className={`${styles.menuItem} ${styles.adminItem}`}>
-                            <Shield size={20} /> Manager Dashboard
-                        </div>
-                    </Card>
-                </Link>
             </section>
 
             <div style={{ marginTop: '3rem', textAlign: 'center' }}>
                 <button
                     className="btn btn-outline"
-                    style={{ borderColor: 'red', color: 'red' }}
+                    style={{ borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444' }}
                     onClick={handleLogout}
                 >
                     <LogOut size={18} style={{ marginRight: '8px' }} />

@@ -375,7 +375,7 @@ export const getCurrentUser = async (): Promise<Player | null> => {
             const newProfile = {
                 id: user.id,
                 full_name: user.user_metadata.full_name || 'Player',
-                elo: 1200,
+                elo: 0, // Set to 0 to trigger Onboarding
                 wins: 0,
                 matches_played: 0,
                 avatar_url: user.user_metadata.avatar_url || ''

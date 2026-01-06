@@ -10,20 +10,7 @@ import {
 import styles from './page.module.css';
 
 export default function MatchesPage() {
-    const [matches, setMatches] = useState<Match[]>([]);
-    const [bookingsToConfirm, setBookingsToConfirm] = useState<Booking[]>([]);
-    const [user, setUser] = useState<Player | null>(null);
-    const [showModal, setShowModal] = useState(false);
-    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-
-    // Form State
-    const [partner, setPartner] = useState('');
-    const [opponent, setOpponent] = useState('');
-    const [score, setScore] = useState('');
-    const [result, setResult] = useState<'win' | 'loss' | null>(null);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-    const START_TAGS = ["Sweaty 🥵", "Chill 🍺", "Tactical 🧠", "Intense ⚡", "Fun 😂"];
+    const [upcomingMatches, setUpcomingMatches] = useState<Booking[]>([]);
 
     useEffect(() => {
         loadData();
@@ -35,80 +22,62 @@ export default function MatchesPage() {
         const allMatches = await getMatches();
         setMatches(allMatches);
 
-        // Fetch bookings that need confirmation (Past date, Status not rejected, Not in matches list)
-        // Note: Matches are separate table. We assume if a booking has a match result, the match.id == booking.id
-        // or we check dates/participants. For this MVP, we use ID.
         const allBookings = await getBookings();
-        const past = allBookings.filter(b => {
-            const isPast = new Date(b.date + 'T' + b.time) < new Date();
-            const hasResult = allMatches.some(m => m.id === b.id);
-            // Check if user is in booking
-            const isParticipant = b.participants?.some(p => p.id === u?.id) || b.userId === u?.id;
+        const now = new Date();
 
+        // 1. Past Bookings (Ready for Score)
+        const past = allBookings.filter(b => {
+            // Create date object correctly (assuming YYYY-MM-DD and HH:MM)
+            const matchDate = new Date(b.date + 'T' + b.time);
+            const isPast = matchDate < now;
+            const hasResult = allMatches.some(m => m.id === b.id);
+            const isParticipant = b.participants?.some(p => p.id === u?.id) || b.userId === u?.id; // Robust check
             return isPast && !hasResult && b.status !== 'rejected' && isParticipant;
         });
         setBookingsToConfirm(past);
+
+        // 2. Upcoming matches
+        if (u) {
+            const upcoming = allBookings.filter(b => {
+                const matchDate = new Date(b.date + 'T' + b.time);
+                // Check if user is ANY participant
+                const isParticipant =
+                    b.userId === u.id ||
+                    b.player1Id === u.id ||
+                    b.player2Id === u.id ||
+                    b.player3Id === u.id ||
+                    b.player4Id === u.id;
+
+                return matchDate >= now && isParticipant && b.status !== 'rejected';
+            }).sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime());
+            setUpcomingMatches(upcoming);
+        }
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!result || !score || !opponent || !user || !selectedBooking) return;
+    const handleLeave = async (bookingId: string, dateStr: string, timeStr: string) => {
+        const matchDate = new Date(dateStr + 'T' + timeStr);
+        const now = new Date();
+        const diffHrs = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        // Use Booking ID as Match ID
-        const matchId = selectedBooking.id;
-
-        try {
-            await submitMatchScore(
-                matchId,
-                score,
-                result === 'win' ? 1 : 2,
-                user.id,
-                {
-                    date: new Date().toISOString().split('T')[0],
-                    team1Names: partner ? `You & ${partner}` : 'You',
-                    team2Names: opponent
-                },
-                selectedTags
-            );
-
-            // Refresh
-            await loadData();
-            // Refresh
-            await loadData();
-            setShowModal(false);
-
-            // Reset
-            setOpponent('');
-            setPartner('');
-            setScore('');
-            setResult(null);
-            setSelectedTags([]);
-            alert("Match submitted! It is now pending confirmation.");
-        } catch (err: any) {
-            alert("Error submitting match: " + err.message);
+        let confirmMsg = "Are you sure you want to leave this match?";
+        if (diffHrs < 12) {
+            confirmMsg = "WARNING: Cancelling within 12 hours of the match start results in a penalty. The club admin will be notified. Are you sure you want to leave?";
         }
-    };
 
-    const handleConfirm = async (matchId: string) => {
-        try {
-            await confirmMatchScore(matchId);
-            await loadData();
-            alert("Match confirmed! ELOs have been updated.");
-        } catch (err: any) {
-            alert("Error confirming: " + err.message);
-        }
-    };
+        if (!confirm(confirmMsg)) return;
 
-    const handleDispute = async (matchId: string) => {
-        const reason = prompt("Please provide a reason for the dispute:");
-        if (!reason) return;
+        // Optimistic UI Update
+        setUpcomingMatches(prev => prev.filter(b => b.id !== bookingId));
 
         try {
-            await disputeMatch(matchId, reason);
+            // Dynamically import to ensure client-side execution if needed, or just standard import
+            const { leaveMatch } = await import('@/lib/store');
+            await leaveMatch(bookingId);
+            // Re-load to ensure sync (e.g. if it was deleted or status changed)
             await loadData();
-            alert("The captain has been notified. This will be resolved soon.");
-        } catch (err: any) {
-            alert("Error disputing: " + err.message);
+        } catch (e: any) {
+            alert("Error leaving match: " + e.message);
+            await loadData(); // Revert on error
         }
     };
 
@@ -120,6 +89,60 @@ export default function MatchesPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h1 style={{ margin: 0 }}>Matches</h1>
             </div>
+
+            {/* Upcoming Matches */}
+            {upcomingMatches.length > 0 && (
+                <section style={{ marginBottom: '2rem' }}>
+                    <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem', color: 'hsl(var(--secondary))' }}>Your Upcoming Matches</h2>
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                        {upcomingMatches.map(booking => (
+                            <Card key={booking.id} style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>{booking.date} • {booking.time}</span>
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{booking.clubName}</div>
+                                </div>
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>
+                                            {(booking.participants?.length || 1)}/4 Players
+                                        </div>
+                                        {booking.participants?.length === 4 ? (
+                                            <span style={{ fontSize: '0.75rem', background: 'hsl(var(--success))', color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>Confirmed</span>
+                                        ) : (
+                                            <span style={{ fontSize: '0.75rem', background: 'hsl(var(--warning))', color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>Looking for players</span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {booking.participants?.map(p => (
+                                            <div key={p.id} style={{ fontSize: '0.8rem', opacity: 0.8, background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>
+                                                {p.name.split(' ')[0]}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        className="btn btn-outline"
+                                        style={{ flex: 1, borderColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive))' }}
+                                        onClick={() => handleLeave(booking.id, booking.date, booking.time)}
+                                    >
+                                        Leave Match
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{ flex: 1 }}
+                                        onClick={() => window.location.href = `/chat/${booking.id}`}
+                                    >
+                                        Chat
+                                    </button>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Past Bookings (Waiting for Score) */}
             {bookingsToConfirm.length > 0 && (
