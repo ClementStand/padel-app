@@ -43,8 +43,8 @@ export default function ProfilePage() {
 
                 const m = await getMatches();
                 const userMatches = m.filter(match =>
-                    match.team1Names.includes('You') || match.team1Names.includes(currentUser.name) ||
-                    match.team2Names.includes('You') || match.team2Names.includes(currentUser.name)
+                    (match.team1Names || '').includes('You') || (match.team1Names || '').includes(currentUser.name) ||
+                    (match.team2Names || '').includes('You') || (match.team2Names || '').includes(currentUser.name)
                 );
                 setMatches(userMatches);
 
@@ -108,10 +108,26 @@ export default function ProfilePage() {
             }}>
                 <button
                     onClick={() => setIsEditing(!isEditing)}
-                    style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%' }}
+                    style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%', cursor: 'pointer', zIndex: 10 }}
                 >
                     {isEditing ? <X size={20} /> : <Edit2 size={20} />}
                 </button>
+
+                <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: '8px', zIndex: 10 }}>
+                    <Link href="/settings">
+                        <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', borderColor: 'rgba(255,255,255,0.2)' }}>
+                            <Settings size={16} /> <span className="settings-text">Settings</span>
+                        </button>
+                    </Link>
+                </div>
+
+                <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: '8px', zIndex: 10 }}>
+                    <Link href="/settings">
+                        <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', borderColor: 'rgba(255,255,255,0.2)' }}>
+                            <Settings size={16} /> <span className="settings-text">Settings</span>
+                        </button>
+                    </Link>
+                </div>
 
                 <div style={{
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 16px auto',

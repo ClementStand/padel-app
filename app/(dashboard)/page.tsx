@@ -47,7 +47,7 @@ export default function Home() {
 
       const myUpcoming = bookings.filter(b => {
         const bDate = new Date(b.date + 'T' + b.time);
-        const isParticipant = (b.participants || []).some(p => p.id === currentUser.id) || b.userId === currentUser.id;
+        const isParticipant = (b.participants || []).some(p => p.id === currentUser.id);
         return (b.status === 'confirmed' || b.status === 'open') && // Allow open as upcoming if I'm in it
           bDate >= today &&
           isParticipant;
@@ -118,7 +118,6 @@ export default function Home() {
 
       // Check if user is ANY participant (even if profile missing)
       const isParticipant =
-        b.userId === currentUser.id ||
         b.player1Id === currentUser.id ||
         b.player2Id === currentUser.id ||
         b.player3Id === currentUser.id ||
@@ -404,6 +403,7 @@ export default function Home() {
         isOpen={!!selectedMatch}
         onClose={() => setSelectedMatch(null)}
         onJoin={handleJoin}
+        onLeave={handleLeave}
         currentUserId={user?.id || ''}
       />
 

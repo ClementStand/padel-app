@@ -12,6 +12,22 @@ import styles from './page.module.css';
 export default function MatchesPage() {
     const [upcomingMatches, setUpcomingMatches] = useState<Booking[]>([]);
 
+    // Missing state variables restoration
+    const [user, setUser] = useState<Player | null>(null);
+    const [matches, setMatches] = useState<Match[]>([]);
+    const [bookingsToConfirm, setBookingsToConfirm] = useState<Booking[]>([]);
+
+    // Modal State
+    const [showModal, setShowModal] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [partner, setPartner] = useState('');
+    const [opponent, setOpponent] = useState('');
+    const [score, setScore] = useState('');
+    const [result, setResult] = useState<'win' | 'loss' | null>(null);
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    const START_TAGS = ['Good Game', 'Intense', 'Friendly', 'Competitive', 'Fun', 'Rainy', 'Sunny', 'Windy'];
+
     useEffect(() => {
         loadData();
     }, []);
@@ -55,6 +71,7 @@ export default function MatchesPage() {
     }
 
     const handleLeave = async (bookingId: string, dateStr: string, timeStr: string) => {
+        console.log("handleLeave called using id:", bookingId);
         const matchDate = new Date(dateStr + 'T' + timeStr);
         const now = new Date();
         const diffHrs = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -64,20 +81,67 @@ export default function MatchesPage() {
             confirmMsg = "WARNING: Cancelling within 12 hours of the match start results in a penalty. The club admin will be notified. Are you sure you want to leave?";
         }
 
-        if (!confirm(confirmMsg)) return;
+        if (!confirm(confirmMsg)) {
+            console.log("User cancelled confirmation");
+            return;
+        }
 
+        console.log("Confirmed. optimistically removing...");
         // Optimistic UI Update
         setUpcomingMatches(prev => prev.filter(b => b.id !== bookingId));
 
         try {
-            // Dynamically import to ensure client-side execution if needed, or just standard import
+            console.log("Calling leaveMatch...");
+            // Use dynamic import if consistent, or we can just call it if we add it to imports. 
+            // Stick to dynamic for now but LOG it.
             const { leaveMatch } = await import('@/lib/store');
             await leaveMatch(bookingId);
+            console.log("leaveMatch returned success.");
+
             // Re-load to ensure sync (e.g. if it was deleted or status changed)
             await loadData();
         } catch (e: any) {
-            alert("Error leaving match: " + e.message);
+            console.error("Error in handleLeave:", e);
+            alert("Error leaving match: " + (e.message || e));
             await loadData(); // Revert on error
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedBooking || !user || !result) return;
+
+        try {
+            await submitMatchScore(selectedBooking.id, score, result === 'win' ? 1 : 2, user.id, {
+                date: selectedBooking.date,
+                team1Names: result === 'win' ? `${user.name} & ${partner || 'Partner'}` : opponent,
+                team2Names: result === 'win' ? opponent : `${user.name} & ${partner || 'Partner'}`
+            }, selectedTags);
+            alert("Match submitted!");
+            setShowModal(false);
+            loadData();
+        } catch (error: any) {
+            alert("Error: " + error.message);
+        }
+    };
+
+    const handleConfirm = async (matchId: string) => {
+        try {
+            await confirmMatchScore(matchId);
+            loadData();
+        } catch (e: any) {
+            alert("Error confirming: " + e.message);
+        }
+    };
+
+    const handleDispute = async (matchId: string) => {
+        const reason = prompt("Enter reason:");
+        if (!reason) return;
+        try {
+            await disputeMatch(matchId, reason);
+            loadData();
+        } catch (e: any) {
+            alert("Error: " + e.message);
         }
     };
 
@@ -271,6 +335,8 @@ export default function MatchesPage() {
                     </Card>
                 </div>
             )}
+
+
 
             {/* Pending Matches Section */}
             {pendingMatches.length > 0 && (

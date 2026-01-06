@@ -272,12 +272,18 @@ export const joinMatch = async (bookingId: string) => {
 };
 
 export const leaveMatch = async (bookingId: string) => {
+    console.log("[store] leaveMatch called for:", bookingId);
     const user = await getCurrentUser();
     if (!user) throw new Error("Must be logged in");
+    console.log("[store] User found:", user.id);
 
     // 1. Get Booking
-    const { data: booking } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
-    if (!booking) throw new Error("Booking not found");
+    const { data: booking, error: fetchError } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
+    if (fetchError || !booking) {
+        console.error("[store] Booking not found or error:", fetchError);
+        throw new Error("Booking not found");
+    }
+    console.log("[store] Booking found:", booking);
 
     // 2. Identify which slot user is in
     let slotToUpdate = '';
@@ -288,6 +294,8 @@ export const leaveMatch = async (bookingId: string) => {
     else throw new Error("You are not in this match");
 
     // 3. Update (Clear slot)
+    // We no longer delete if P1 leaves. We just clear the slot.
+    // The user_id remains as the 'creator', but they are no longer a participant.
     const { error } = await supabase
         .from('bookings')
         .update({ [slotToUpdate]: null })
@@ -324,15 +332,22 @@ export const saveMatch = async (match: Match) => {
     }
 };
 
-export const updatePlayer = async (player: Player) => {
-    // We update the profiles table
+export const updatePlayer = async (player: Partial<Player> & { id: string }) => {
+    const updates: any = {};
+    if (player.elo !== undefined) updates.elo = player.elo;
+    if (player.wins !== undefined) updates.wins = player.wins;
+    if (player.matchesPlayed !== undefined) updates.matches_played = player.matchesPlayed;
+    if (player.handedness !== undefined) updates.hand_preference = player.handedness;
+    if (player.courtSide !== undefined) updates.court_side_preference = player.courtSide;
+    if (player.name !== undefined) updates.full_name = player.name;
+    if (player.country !== undefined) updates.country = player.country;
+    if (player.dob !== undefined) updates.dob = player.dob;
+
+    if (Object.keys(updates).length === 0) return;
+
     const { error } = await supabase
         .from('profiles')
-        .update({
-            elo: player.elo,
-            wins: player.wins,
-            matches_played: player.matchesPlayed
-        })
+        .update(updates)
         .eq('id', player.id);
 
     if (error) {
@@ -418,7 +433,9 @@ export const getCurrentUser = async (): Promise<Player | null> => {
             year: profile.year,
             dob: profile.dob,
             avatar: profile.avatar_url,
-            isAdmin: profile.is_admin // NEW
+            isAdmin: profile.is_admin, // NEW
+            handedness: profile.hand_preference,
+            courtSide: profile.court_side_preference
         };
     } catch (e) {
         console.error("Error in getCurrentUser:", e);
@@ -436,6 +453,8 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
 
     // 2. Get Open Bookings (Pending/Open, Future Date)
     const bookings = await getBookings();
+    console.log("[store] getRecs: Total bookings fetched:", bookings.length);
+
     const openBookings = bookings.filter(b => {
         // Robust Date Check
         const matchDate = new Date(b.date + 'T' + b.time); // e.g., 2024-12-18T20:00
@@ -444,15 +463,21 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
         // Status Check: 'pending' OR 'open'
         const isOpen = b.status === 'pending' || b.status === 'open';
 
-        // Check if I am already in it
-        const isMyMatch = b.userId === userId ||
+        // Check if I am already in it as a PLAYER
+        // Note: We intentionally ignore b.userId (creator) here. 
+        // If creator leaves the player slot, they should see it in recommendations.
+        const isMyMatch =
             b.player1Id === userId ||
             b.player2Id === userId ||
             b.player3Id === userId ||
             b.player4Id === userId;
 
-        return matchDate > now && isOpen && !isMyMatch;
+        const isFuture = matchDate > now;
+        console.log(`[store] Check Match ${b.id}: Date=${b.date} Time=${b.time} Future=${isFuture} Open=${isOpen} MyMatch=${isMyMatch} Status=${b.status}`);
+
+        return isFuture && isOpen && !isMyMatch;
     });
+    console.log("[store] getRecs: Filtered open bookings:", openBookings.length);
 
     // Get simple "Nemesis" list (players user lost to)
     const matches = await getMatches();
@@ -623,4 +648,26 @@ export const getEloHistory = async (userId: string): Promise<EloHistory[]> => {
         newElo: h.new_elo,
         changeDate: h.change_date
     }));
+};
+
+export const onboardUser = async (level: 1 | 2 | 3 | 4) => {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Must be logged in");
+
+    // Map level to ELO
+    // 1: Beginner -> 1000
+    // 2: Intermediate -> 1200
+    // 3: Advanced -> 1450
+    // 4: Pro -> 1700
+    let startElo = 1000;
+    if (level === 2) startElo = 1200;
+    if (level === 3) startElo = 1450;
+    if (level === 4) startElo = 1700;
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ elo: startElo })
+        .eq('id', user.id);
+
+    if (error) throw error;
 };
