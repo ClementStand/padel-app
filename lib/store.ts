@@ -11,7 +11,7 @@ export interface Booking {
     status: 'pending' | 'confirmed' | 'rejected' | 'open';
     userId: string;
     userName: string;
-    participants?: { id: string, name: string }[];
+    participants?: { id: string, name: string, elo?: number, avatar?: string }[];
     player1Id?: string;
     player2Id?: string;
     player3Id?: string;
@@ -77,7 +77,8 @@ export const getClubs = async (): Promise<Club[]> => {
 };
 
 export const getBookings = async (): Promise<Booking[]> => {
-    const { data, error } = await supabase
+    // 1. Fetch Bookings
+    const { data: bookingsData, error } = await supabase
         .from('bookings')
         .select(`
             *,
@@ -88,15 +89,39 @@ export const getBookings = async (): Promise<Booking[]> => {
 
     if (error) return [];
 
-    return data.map((b: any) => {
-        // Construct participants from slots
-        const participants = [];
-        // Ideally we fetch names for these IDs too. For now we might need to adjust the select to join profiles 4 times or fetch separately.
-        // For MVP, if we used `profiles` join on user_id, that's just the creator.
-        // Let's assume we want to just return IDs for slots and maybe we fetch names in component or improve query later.
-        // Actually, let's keep it simple: The `participants` array in UI is derived from these.
-        // If we want names, we really should join properly.
-        // Given complexity, let's just stick to what `getBookings` was doing but map slots.
+    // 2. Extract all unique user IDs from the slots
+    const allUserIds = new Set<string>();
+    bookingsData.forEach((b: any) => {
+        if (b.user_id) allUserIds.add(b.user_id);
+        if (b.player_1_id) allUserIds.add(b.player_1_id);
+        if (b.player_2_id) allUserIds.add(b.player_2_id);
+        if (b.player_3_id) allUserIds.add(b.player_3_id);
+        if (b.player_4_id) allUserIds.add(b.player_4_id);
+    });
+
+    // 3. Fetch Profile Data for these IDs
+    let userMap: Record<string, any> = {};
+    if (allUserIds.size > 0) {
+        const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, full_name, elo, avatar_url')
+            .in('id', Array.from(allUserIds));
+
+        if (profilesData) {
+            profilesData.forEach((p: any) => {
+                userMap[p.id] = p;
+            });
+        }
+    }
+
+    return bookingsData.map((b: any) => {
+        // Helper to get name/details
+        const p1 = userMap[b.player_1_id];
+        const p2 = userMap[b.player_2_id];
+        const p3 = userMap[b.player_3_id];
+        const p4 = userMap[b.player_4_id];
+        const owner = userMap[b.user_id];
+
         return {
             id: b.id,
             clubId: b.club_id,
@@ -105,18 +130,18 @@ export const getBookings = async (): Promise<Booking[]> => {
             time: b.time,
             status: b.status,
             userId: b.user_id,
-            userName: b.profiles?.full_name || 'Unknown User',
+            userName: owner?.full_name || 'Unknown User',
             player1Id: b.player_1_id,
             player2Id: b.player_2_id,
             player3Id: b.player_3_id,
             player4Id: b.player_4_id,
-            // Mocking participants list for UI compatibility for now (or we fetch names)
+            // Real participants list (with fallback for missing profiles)
             participants: [
-                b.player_1_id ? { id: b.player_1_id, name: 'Player 1' } : null,
-                b.player_2_id ? { id: b.player_2_id, name: 'Player 2' } : null,
-                b.player_3_id ? { id: b.player_3_id, name: 'Player 3' } : null,
-                b.player_4_id ? { id: b.player_4_id, name: 'Player 4' } : null,
-            ].filter(Boolean) as { id: string, name: string }[]
+                b.player_1_id ? (userMap[b.player_1_id] ? { id: userMap[b.player_1_id].id, name: userMap[b.player_1_id].full_name, elo: userMap[b.player_1_id].elo, avatar: userMap[b.player_1_id].avatar_url } : { id: b.player_1_id, name: 'Unknown' }) : null,
+                b.player_2_id ? (userMap[b.player_2_id] ? { id: userMap[b.player_2_id].id, name: userMap[b.player_2_id].full_name, elo: userMap[b.player_2_id].elo, avatar: userMap[b.player_2_id].avatar_url } : { id: b.player_2_id, name: 'Unknown' }) : null,
+                b.player_3_id ? (userMap[b.player_3_id] ? { id: userMap[b.player_3_id].id, name: userMap[b.player_3_id].full_name, elo: userMap[b.player_3_id].elo, avatar: userMap[b.player_3_id].avatar_url } : { id: b.player_3_id, name: 'Unknown' }) : null,
+                b.player_4_id ? (userMap[b.player_4_id] ? { id: userMap[b.player_4_id].id, name: userMap[b.player_4_id].full_name, elo: userMap[b.player_4_id].elo, avatar: userMap[b.player_4_id].avatar_url } : { id: b.player_4_id, name: 'Unknown' }) : null,
+            ].filter(Boolean) as { id: string, name: string, elo?: number, avatar?: string }[]
         };
     });
 };

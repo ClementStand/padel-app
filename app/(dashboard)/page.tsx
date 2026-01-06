@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles } from 'lucide-react';
 import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
+import MatchDetailsModal from '@/components/MatchDetailsModal'; // NEW
 import EloChart from '@/components/EloChart';
 import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, Player, Booking, Match } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -98,16 +99,54 @@ export default function Home() {
     setRecommendedMatches(recs);
   }
 
+  const refreshAll = async () => {
+    // We need to re-fetch bookings and matches.
+    // User is already set.
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return;
+
+    const bookings = await getBookings();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const myUpcoming = bookings.filter(b => {
+      const bDate = new Date(b.date + 'T' + b.time);
+
+      // Check if user is ANY participant (even if profile missing)
+      const isParticipant =
+        b.userId === currentUser.id ||
+        b.player1Id === currentUser.id ||
+        b.player2Id === currentUser.id ||
+        b.player3Id === currentUser.id ||
+        b.player4Id === currentUser.id;
+
+      return (b.status === 'confirmed' || b.status === 'open') &&
+        bDate >= today &&
+        isParticipant;
+    }).sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime());
+
+    setUpcoming(myUpcoming);
+
+    const recs = await getRecommendedMatches(currentUser.id);
+    setRecommendedMatches(recs);
+  };
+
+  // Modal State
+  const [selectedMatch, setSelectedMatch] = useState<Booking | null>(null);
+
   const handleJoin = async (bookingId: string) => {
     try {
-      if (!confirm("Confirm joining this match?")) return;
       await joinMatch(bookingId);
       alert("Joined match!");
-      // Refresh
-      loadRecs();
+      setSelectedMatch(null); // Close if open
+      await refreshAll(); // RELOAD UPCOMING & RECS
     } catch (e: any) {
       alert("Error: " + e.message);
     }
+  };
+
+  const openMatchDetails = (match: Booking) => {
+    setSelectedMatch(match);
   };
 
   // Determine next match for Hero section
@@ -240,47 +279,68 @@ export default function Home() {
             <div style={{ display: 'flex', overflowX: 'auto', gap: '1rem', paddingBottom: '1rem', scrollSnapType: 'x mandatory' }}>
               {recommendedMatches.map(match => (
                 <div key={match.id} style={{ minWidth: '280px', scrollSnapAlign: 'start' }}>
-                  <Card glass style={{ height: '100%', position: 'relative', border: match.isNemesis ? '1px solid hsl(var(--secondary))' : undefined }}>
-                    {(match.playerCount || 0) < 4 && (
-                      <div style={{
-                        position: 'absolute', top: -10, right: 10,
-                        background: match.playerCount === 3 ? 'hsl(var(--destructive))' : 'hsl(var(--success))',
-                        color: match.playerCount === 3 ? 'white' : 'black',
-                        fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                      }}>
-                        {match.playerCount === 3 ? '1 SPOT LEFT! 🔥' : `${4 - (match.playerCount || 0)} SPOTS LEFT`}
-                      </div>
-                    )}
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '4px' }}>{match.clubName} • {match.date}</div>
-                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.playerCount}/4 Players</div>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
-                      {match.participants?.map(p => (
-                        <div key={p.id} style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'black' }}>
-                          {p.name.charAt(0)}
+                  {/* Made Card clickable to open details */}
+                  <div onClick={() => openMatchDetails(match)} style={{ height: '100%', cursor: 'pointer' }}>
+                    <Card glass style={{ height: '100%', position: 'relative', border: match.isNemesis ? '1px solid hsl(var(--secondary))' : undefined }}>
+                      {(match.playerCount || 0) < 4 && (
+                        <div style={{
+                          position: 'absolute', top: 12, right: 12, // Moved back to TOP
+                          background: match.playerCount === 3 ? 'hsl(var(--destructive))' : 'hsl(var(--success))',
+                          color: match.playerCount === 3 ? 'white' : 'black',
+                          fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                          zIndex: 10
+                        }}>
+                          {match.playerCount === 3 ? '1 SPOT LEFT! 🔥' : `${4 - (match.playerCount || 0)} SPOTS LEFT`}
                         </div>
-                      ))}
-                      {/* Empty slots placeholders */}
-                      {Array.from({ length: 4 - (match.playerCount || 0) }).map((_, i) => (
-                        <div key={i} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)' }} />
-                      ))}
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: '100%', fontSize: '0.8rem', height: '36px' }}
-                      onClick={() => handleJoin(match.id)}
-                    >
-                      Join Match
-                    </button>
-                  </Card>
+                      )}
+                      <div style={{ marginBottom: '1rem', paddingRight: '110px' }}> {/* Added padding to avoid overlap */}
+                        <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '4px' }}>{match.clubName} • {match.date}</div>
+                        <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.playerCount}/4 Players</div>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
+                        {match.participants?.map(p => (
+                          <div key={p.id} style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.7rem', color: 'black', fontWeight: 'bold'
+                          }}>
+                            {!p.avatar && p.name.charAt(0)}
+                          </div>
+                        ))}
+                        {/* Empty slots placeholders */}
+                        {Array.from({ length: 4 - (match.playerCount || 0) }).map((_, i) => (
+                          <div key={i} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)' }} />
+                        ))}
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        style={{ width: '100%', fontSize: '0.8rem', height: '36px' }}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent opening modal when clicking Join directly
+                          handleJoin(match.id);
+                        }}
+                      >
+                        Join Match
+                      </button>
+                    </Card>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
         )
       }
+
+      {/* Match Details Modal */}
+      <MatchDetailsModal
+        booking={selectedMatch}
+        isOpen={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        onJoin={handleJoin}
+        currentUserId={user?.id || ''}
+      />
 
       {/* 3. Stats Row Using Bento Grid */}
       {
