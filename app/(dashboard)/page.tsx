@@ -6,21 +6,18 @@ import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles } from 'lucid
 import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
 import EloChart from '@/components/EloChart';
-import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, Player, Booking } from '@/lib/store';
+import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, Player, Booking, Match } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 // Mock Data for Feed
-const recentMatches = [
-  { id: 1, p1: "Alex & Sarah", p2: "Mike & Tom", score: "6-4, 6-2", winner: "p1" },
-  { id: 2, p1: "Javi & Luis", p2: "Carla & Ana", score: "6-7, 4-6", winner: "p2" },
-];
+
 
 export default function Home() {
   const [user, setUser] = useState<Player | null>(null);
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
-  const [topPlayers, setTopPlayers] = useState<Player[]>([]);
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -47,10 +44,31 @@ export default function Home() {
       ).sort((a, b) => a.date.localeCompare(b.date));
       setUpcoming(myUpcoming);
 
-      // 3. Get Top Players
-      const allPlayers = await getPlayers();
-      const sorted = [...allPlayers].sort((a, b) => b.elo - a.elo).slice(0, 5);
-      setTopPlayers(sorted);
+      setUpcoming(myUpcoming);
+
+      // 3. Get Recent Activity (Finished Matches)
+      const allMatches = await getMatches();
+      // Filter for user involvement
+      const myMatches = allMatches.filter(m =>
+        m.status === 'completed' &&
+        (m.team1Names.includes('You') || m.team1Names.includes(currentUser.name) ||
+          m.team2Names.includes('You') || m.team2Names.includes(currentUser.name))
+      ).slice(0, 5); // Take top 5
+      setRecentMatches(myMatches);
+
+      // 4. Calculate Streak (Simplified Logic matching Profile)
+      let streak = 0;
+      for (const m of myMatches) {
+        const isTeam1 = m.team1Names.includes('You') || m.team1Names.includes(currentUser.name);
+        const isTeam2 = m.team2Names.includes('You') || m.team2Names.includes(currentUser.name);
+
+        if (!isTeam1 && !isTeam2) continue;
+
+        const userWon = (isTeam1 && m.winner === 1) || (isTeam2 && m.winner === 2);
+        if (userWon) streak++;
+        else break;
+      }
+      setCurrentStreak(streak);
     }
     loadData();
   }, []);
@@ -58,17 +76,33 @@ export default function Home() {
   const winRate = user ? (user.matchesPlayed > 0 ? Math.round(((user.wins || 0) / user.matchesPlayed) * 100) : 0) : 0;
 
   // Recommendation Logic
-  const [recommendedBooking, setRecommendedBooking] = useState<Booking | null>(null);
+  // const [recommendedBooking, setRecommendedBooking] = useState<Booking | null>(null);
+
+  // Recommendation Logic
+  const [recommendedMatches, setRecommendedMatches] = useState<(Booking & { isNemesis?: boolean; playerCount?: number })[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    async function loadRecs() {
-      if (!user) return;
-      const recs = await getRecommendedMatches(user.id);
-      setRecommendedBooking(recs[0] || null);
-    }
     loadRecs();
   }, [user]);
+
+  async function loadRecs() {
+    if (!user) return;
+    const recs = await getRecommendedMatches(user.id);
+    setRecommendedMatches(recs);
+  }
+
+  const handleJoin = async (bookingId: string) => {
+    try {
+      if (!confirm("Confirm joining this match?")) return;
+      await joinMatch(bookingId);
+      alert("Joined match!");
+      // Refresh
+      loadRecs();
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+  };
 
   // Determine next match for Hero section
   const nextMatch = upcoming[0];
@@ -115,45 +149,115 @@ export default function Home() {
       {/* 2. Hero Section (Next Match) */}
       <section className={styles.heroCard}>
         <div className={styles.heroContent}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', opacity: 0.8, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <span>Semi-Finals</span>
-            {nextMatch && <span>{nextMatch.clubName}</span>}
-          </div>
+          {nextMatch ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', opacity: 0.8, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span>My Next Match</span>
+                <span>{nextMatch.clubName}</span>
+              </div>
 
-          <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.5rem' }}>
-            vs {nextMatch ? nextMatch.participants?.filter(p => !p.name.includes(user?.name || '')).map(p => p.name.split(' ')[0]).join(' & ') : "Mike & Tom"}
-          </div>
+              <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.5rem' }}>
+                vs {nextMatch.participants?.filter(p => !p.name.includes(user?.name || '')).map(p => p.name.split(' ')[0]).join(' & ') || "Opponent"}
+              </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem', opacity: 0.9 }}>
-            <Clock size={18} />
-            <span style={{ fontWeight: 600 }}>{nextMatch ? `${nextMatch.time} • Court 3` : "18:00 • Court 3"}</span>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem', opacity: 0.9 }}>
+                <Clock size={18} />
+                <span style={{ fontWeight: 600 }}>{nextMatch.date} • {nextMatch.time}</span>
+              </div>
 
-          <Link href={nextMatch ? `/matches/${nextMatch.id}` : "/matches"} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', width: '100%', fontWeight: 700 }}>
-            Check Details
-          </Link>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <Link href={`/matches`} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', flex: 1, fontWeight: 700 }}>
+                  Enter Score
+                </Link>
+                <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>
+                  Chat
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>No Upcoming Matches</div>
+              <p style={{ opacity: 0.7, marginBottom: '1.5rem' }}>You're free! Find a partner or join an open match below.</p>
+              <Link href="/book" className="btn" style={{ background: 'white', color: 'hsl(var(--background))', fontWeight: 700 }}>
+                Find a Match
+              </Link>
+            </div>
+          )}
         </div>
-
-        {/* Decorative background elements if possible, avoiding complex SVG for now */}
       </section>
 
+
+
+      {/* 2.5 Recommended Matches (Horizontal Scroll) */}
+      {
+        recommendedMatches.length > 0 && (
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Join a Match
+            </h2>
+            <div style={{ display: 'flex', overflowX: 'auto', gap: '1rem', paddingBottom: '1rem', scrollSnapType: 'x mandatory' }}>
+              {recommendedMatches.map(match => (
+                <div key={match.id} style={{ minWidth: '280px', scrollSnapAlign: 'start' }}>
+                  <Card glass style={{ height: '100%', position: 'relative', border: match.isNemesis ? '1px solid hsl(var(--secondary))' : undefined }}>
+                    {match.playerCount === 3 && (
+                      <div style={{
+                        position: 'absolute', top: -10, right: 10,
+                        background: 'hsl(var(--success))', color: 'black',
+                        fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
+                        boxShadow: '0 4px 12px hsl(var(--success) / 0.4)'
+                      }}>
+                        NEED 1 MORE!
+                      </div>
+                    )}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '4px' }}>{match.clubName} • {match.date}</div>
+                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.playerCount}/4 Players</div>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
+                      {match.participants?.map(p => (
+                        <div key={p.id} style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'black' }}>
+                          {p.name.charAt(0)}
+                        </div>
+                      ))}
+                      {/* Empty slots placeholders */}
+                      {Array.from({ length: 4 - (match.playerCount || 0) }).map((_, i) => (
+                        <div key={i} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)' }} />
+                      ))}
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%', fontSize: '0.8rem', height: '36px' }}
+                      onClick={() => handleJoin(match.id)}
+                    >
+                      Join Match
+                    </button>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
       {/* 3. Stats Row Using Bento Grid */}
-      {user && (
-        <section className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={styles.statLabel}>Win Rate</div>
-            <div className={`${styles.statValue} text-data`} style={{ color: 'hsl(var(--secondary))' }}>
-              {winRate}%
+      {
+        user && (
+          <section className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Win Rate</div>
+              <div className={`${styles.statValue} text-data`} style={{ color: 'hsl(var(--secondary))' }}>
+                {winRate}%
+              </div>
             </div>
-          </div>
-          <div className={styles.statCard}>
-            <div className={styles.statLabel}>Rank</div>
-            <div className={`${styles.statValue} text-data`} style={{ color: 'white' }}>
-              #14
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Streak</div>
+              <div className={`${styles.statValue} text-data`} style={{ color: currentStreak > 1 ? 'hsl(var(--secondary))' : 'white' }}>
+                {currentStreak} <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>WINS</span> {currentStreak > 1 && '🔥'}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )
+      }
 
       {/* 4. Recent Activity */}
       <section>
@@ -162,31 +266,34 @@ export default function Home() {
         </h2>
 
         <div className={styles.matchList}>
-          {recentMatches.map(match => {
-            const isWin = match.winner === 'p1'; // Assuming user is p1 for mock
-            return (
-              <div key={match.id} className={styles.matchItem}>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>
-                    {match.p1} def. {match.p2}
+          {recentMatches.length === 0 ? (
+            <p style={{ opacity: 0.5, fontSize: '0.9rem' }}>No recent matches.</p>
+          ) : (
+            recentMatches.map(match => {
+              const isTeam1 = match.team1Names.includes('You') || (user && match.team1Names.includes(user.name));
+              const isWin = (isTeam1 && match.winner === 1) || (!isTeam1 && match.winner === 2);
+              return (
+                <div key={match.id} className={styles.matchItem}>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: '2px' }}>
+                      {match.team1Names} vs {match.team2Names}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>
+                      {match.score}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>
-                    {match.score}
-                  </div>
+                  <div className={styles.indicator} style={{ background: isWin ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }} />
                 </div>
-                <div className={styles.indicator} style={{ background: isWin ? 'hsl(var(--secondary))' : 'hsl(var(--destructive))' }} />
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </section>
 
       {/* Top Players/Stats (Optional - keeping but pushing down or hiding? User didn't ask for it explicitly in new layout list, but 'Leaderboard' is in nav. Let's keep a simplified version or hide. User said "List of match results" is recent activity. Bottom nav has leaderboard. I'll hide Top Players from home to keep it clean as requested) */}
 
-      {selectedPlayer && (
-        <ProfileModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
-      )}
 
-    </main>
+
+    </main >
   );
 }

@@ -1,36 +1,38 @@
 :root {
-  /* Midnight Professional Theme */
-  --background: 222 47% 5%;
-  /* Slate 950 #020617 */
-  --foreground: 0 0% 100%;
+  /* Fire & Ice Theme */
+  --background: 222 65% 5%;
+  /* #040915 Deepest Blue/Black */
+  --foreground: 210 40% 98%;
 
-  --card: 222 47% 11%;
-  /* Slate 900 #0f172a */
-  --card-foreground: 0 0% 100%;
+  --card: 222 47% 7%;
+  /* Slightly lighter than bg */
+  --card-foreground: 210 40% 98%;
+  --card-border: 217 91% 60%;
+  /* Electric Blue Border */
 
-  --card-border: 215 28% 17%;
+  --primary: 190 100% 50%;
+  /* Electric Cyan/Ice */
+  --primary-foreground: 222 65% 5%;
 
-  --primary: 217 91% 60%;
-  /* Electric Blue */
-  --primary-foreground: 0 0% 100%;
+  --secondary: 0 100% 60%;
+  /* Aggressive Red/Fire */
+  --secondary-foreground: 0 0% 100%;
 
-  --secondary: 142 71% 45%;
-  /* Neon Green */
-  --secondary-foreground: 222 47% 11%;
+  --accent: 217 33% 15%;
+  --accent-foreground: 190 100% 50%;
+  /* Cyan text on accent */
 
-  --accent: 217 33% 13%;
-  --accent-foreground: 0 0% 100%;
-
-  --border: 215 28% 17%;
-  --input: 215 28% 17%;
-  --ring: 217 91% 60%;
+  --border: 217 91% 60%;
+  /* ICE Border default */
+  --input: 217 33% 20%;
+  --ring: 190 100% 50%;
 
   --success: 142 71% 45%;
-  --warning: 38 92% 50%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --radius: 0.75rem;
+  /* Slightly sharper for tech feel */
 
-  --radius: 1rem;
+  --glass: rgba(4, 9, 21, 0.7);
+  --glass-border: rgba(56, 189, 248, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -155,6 +157,32 @@ h6 {
   /* Monospace for data */
   letter-spacing: -0.05em;
   font-weight: 700;
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-card {
+  background: linear-gradient(145deg, rgba(222, 222, 222, 0.05) 0%, rgba(0, 0, 0, 0) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Neo-Brutalism Borders */
+.border-ice {
+  border: 1px solid hsl(var(--primary));
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.3);
+}
+
+.border-fire {
+  border: 1px solid hsl(var(--secondary));
+  box-shadow: 0 0 8px hsl(var(--secondary) / 0.3);
 }
 
 a {

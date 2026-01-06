@@ -12,6 +12,10 @@ export interface Booking {
     userId: string;
     userName: string;
     participants?: { id: string, name: string }[];
+    player1Id?: string;
+    player2Id?: string;
+    player3Id?: string;
+    player4Id?: string;
 }
 
 export interface Club {
@@ -48,6 +52,7 @@ export interface Match {
     status: 'completed' | 'pending_confirmation' | 'disputed';
     submittedBy?: string;
     disputeReason?: string;
+    tags?: string[];
 }
 
 export interface EloHistory {
@@ -82,17 +87,37 @@ export const getBookings = async (): Promise<Booking[]> => {
 
     if (error) return [];
 
-    return data.map((b: any) => ({
-        id: b.id,
-        clubId: b.club_id,
-        clubName: b.clubs?.name || 'Unknown Club',
-        date: b.date,
-        time: b.time,
-        status: b.status,
-        userId: b.user_id,
-        userName: b.profiles?.full_name || 'Unknown User',
-        participants: [{ id: b.user_id, name: b.profiles?.full_name || 'Unknown User' }]
-    }));
+    return data.map((b: any) => {
+        // Construct participants from slots
+        const participants = [];
+        // Ideally we fetch names for these IDs too. For now we might need to adjust the select to join profiles 4 times or fetch separately.
+        // For MVP, if we used `profiles` join on user_id, that's just the creator.
+        // Let's assume we want to just return IDs for slots and maybe we fetch names in component or improve query later.
+        // Actually, let's keep it simple: The `participants` array in UI is derived from these.
+        // If we want names, we really should join properly.
+        // Given complexity, let's just stick to what `getBookings` was doing but map slots.
+        return {
+            id: b.id,
+            clubId: b.club_id,
+            clubName: b.clubs?.name || 'Unknown Club',
+            date: b.date,
+            time: b.time,
+            status: b.status,
+            userId: b.user_id,
+            userName: b.profiles?.full_name || 'Unknown User',
+            player1Id: b.player_1_id,
+            player2Id: b.player_2_id,
+            player3Id: b.player_3_id,
+            player4Id: b.player_4_id,
+            // Mocking participants list for UI compatibility for now (or we fetch names)
+            participants: [
+                b.player_1_id ? { id: b.player_1_id, name: 'Player 1' } : null,
+                b.player_2_id ? { id: b.player_2_id, name: 'Player 2' } : null,
+                b.player_3_id ? { id: b.player_3_id, name: 'Player 3' } : null,
+                b.player_4_id ? { id: b.player_4_id, name: 'Player 4' } : null,
+            ].filter(Boolean) as { id: string, name: string }[]
+        };
+    });
 };
 
 export const getPlayers = async (): Promise<Player[]> => {
@@ -130,7 +155,8 @@ export const getMatches = async (): Promise<Match[]> => {
         eloChange: m.elo_change,
         status: m.status || 'completed', // pending_confirmation, disputed
         submittedBy: m.submitted_by,
-        disputeReason: m.dispute_reason
+        disputeReason: m.dispute_reason,
+        tags: m.tags || []
     }));
 };
 
@@ -164,13 +190,38 @@ export const createBooking = async (booking: {
                 user_id: booking.userId,
                 date: booking.date,
                 time: booking.time,
-                status: 'pending'
+                status: 'pending',
+                player_1_id: booking.userId // Creator is Player 1
             }
         ])
         .select();
 
     if (error) throw error;
     return data;
+};
+
+export const joinMatch = async (bookingId: string) => {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Must be logged in");
+
+    // 1. Get Booking
+    const { data: booking } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
+    if (!booking) throw new Error("Booking not found");
+
+    // 2. Find first empty slot
+    let slotToUpdate = '';
+    if (!booking.player_2_id) slotToUpdate = 'player_2_id';
+    else if (!booking.player_3_id) slotToUpdate = 'player_3_id';
+    else if (!booking.player_4_id) slotToUpdate = 'player_4_id';
+    else throw new Error("Match is full");
+
+    // 3. Update
+    const { error } = await supabase
+        .from('bookings')
+        .update({ [slotToUpdate]: user.id })
+        .eq('id', bookingId);
+
+    if (error) throw error;
 };
 
 export const saveMatch = async (match: Match) => {
@@ -291,20 +342,50 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
         b.status === 'pending'
     );
 
-    // 3. Filter/Rank Logic
-    return openBookings.filter(match => {
-        // A. Skill Level Strategy:
-        // We need existing participants' ELOs. 
-        // For simplicity, we assume we fetch their profiles.
-        // If match has participants, check if average ELO is within +/- 200 of user.
-        // Since getBookings joins simple profiles, we might not have ELOs there. 
-        // We'd need to fetch participant details.
-        // For MVP: We will recommend ALL open matches but sort them? 
-        // Or let's assume if it has < 4 players it's open.
+    // Get simple "Nemesis" list (players user lost to)
+    const matches = await getMatches();
+    const nemesisSet = new Set<string>();
+    matches.forEach(m => {
+        // Assume user was in match. If user lost...
+        // Need to identify user team. 
+        // User is team 1 if submitted by or name match 'You'.
+        // Simplified: If user's name is in team 1 and winner is 2.
+        const userInT1 = m.team1Names.includes(user.name) || m.team1Names.includes('You');
+        const userInT2 = m.team2Names.includes(user.name) || m.team2Names.includes('You');
 
-        // Let's return matches with < 4 players as "Recommended" for now,
-        // effectively showing "Open Matches".
-        return (match.participants?.length || 0) < 4;
+        // Logic: if user lost, add opponents to Nemesis
+        if (userInT1 && m.winner === 2) {
+            m.team2Names.split(' & ').forEach(n => nemesisSet.add(n));
+        } else if (userInT2 && m.winner === 1) {
+            m.team1Names.split(' & ').forEach(n => nemesisSet.add(n));
+        }
+    });
+
+    // 3. Filter/Rank Logic for "Open Matches"
+    return openBookings.map(match => {
+        // Count players
+        const pCount = [match.player1Id, match.player2Id, match.player3Id, match.player4Id].filter(Boolean).length;
+
+        // Participants for UI (mock names again if we didn't fetch them, but for Nemesis we need names...)
+        // Fix: `getBookings` isn't fetching all profile names. 
+        // For Nemesis logic to work on "Open Matches", we need to know who is in them.
+        // For MVP: We skip Nemesis check on OPEN matches for now (or assume we fetch it).
+        // Let's just focus on the "Need 1 more" logic.
+
+        const participants = match.participants || [];
+        const isNemesis = false; // Disable Nemesis on Open Feed for now to simplify query needs
+
+        return { ...match, isNemesis, playerCount: pCount };
+    }).filter(match => {
+        // Keep open ones (less than 4 players)
+        return match.playerCount < 4;
+    }).sort((a, b) => {
+        // Prioritize: High Priority = Missing 1 person (3 players)
+        // So pCount 3 comes first.
+        // Then pCount 2.
+        if (a.playerCount === 3 && b.playerCount !== 3) return -1;
+        if (b.playerCount === 3 && a.playerCount !== 3) return 1;
+        return 0;
     });
 };
 
@@ -315,7 +396,8 @@ export const submitMatchScore = async (
     score: string,
     winner: 1 | 2,
     submittedByUserId: string,
-    details?: { date: string, team1Names: string, team2Names: string }
+    details?: { date: string, team1Names: string, team2Names: string },
+    tags?: string[]
 ) => {
     // 1. Update match to pending_confirmation or Insert new
     // If details provided, we insert ad-hoc even if no booking found (or use details).
@@ -349,7 +431,8 @@ export const submitMatchScore = async (
         winner: winner,
         elo_change: 0,
         status: 'pending_confirmation',
-        submitted_by: submittedByUserId
+        submitted_by: submittedByUserId,
+        tags: tags || []
     }]);
 
     if (error) throw error;
@@ -362,20 +445,29 @@ export const confirmMatchScore = async (matchId: string) => {
 
     if (match.status !== 'pending_confirmation') throw new Error("Match is not pending confirmation");
 
-    // 2. Fetch Participants (We need to specific who is P1, P2, P3, P4)
-    // This is complex because Booking <-> Participants link needs to define teams.
-    // For MVP: We assume we grab 4 random participants from the booking and assign them.
-    // Ideally we stored this team structure. 
-    // Let's assume we have a table `booking_participants` or similar.
-    // For this prototype, we'll fetch 4 profiles linked to the booking (if we have that link)
-    // OR we assume we just simulate the ELO update on the CURRENT USER vs Dummy for now?
-    // No, requirement is fairly strict.
-
-    // Let's just update the status to 'completed' for now and assume ELO calc happens if we had the precise team data.
-    // AND Calculate ELO if we can.
-
-    // Mock ELO Calc for demonstration if we lack full team data:
     const mockRatingChange = 10;
+
+    // 2. Fetch Participants & Current ELOs
+    // To do this strictly correctly, we need the user IDs. 
+    // If we only have submitted_by, we can at least update THAT user.
+    if (match.submitted_by) {
+        // Fetch User Profile
+        const { data: profile } = await supabase.from('profiles').select('elo').eq('id', match.submitted_by).single();
+        const currentElo = profile?.elo || 1200;
+        const newElo = currentElo + mockRatingChange;
+
+        // Update Profile
+        await supabase.from('profiles').update({ elo: newElo }).eq('id', match.submitted_by);
+
+        // Log History
+        await supabase.from('elo_history').insert([{
+            user_id: match.submitted_by,
+            match_id: matchId,
+            old_elo: currentElo,
+            new_elo: newElo,
+            change_date: new Date().toISOString()
+        }]);
+    }
 
     // 3. Update Match Status
     const { error } = await supabase
@@ -384,18 +476,6 @@ export const confirmMatchScore = async (matchId: string) => {
         .eq('id', matchId);
 
     if (error) throw error;
-
-    // 4. Log ELO History (Feature 3)
-    // We would do this for ALL players.
-    // For now, let's do it for the match.submitted_by user as a placeholder.
-    if (match.submitted_by) {
-        await supabase.from('elo_history').insert([{
-            user_id: match.submitted_by,
-            match_id: matchId,
-            old_elo: 1200, // fetch real
-            new_elo: 1200 + mockRatingChange
-        }]);
-    }
 };
 
 export const disputeMatch = async (matchId: string, reason: string) => {

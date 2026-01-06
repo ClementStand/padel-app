@@ -6,11 +6,12 @@ interface CardProps {
     className?: string;
     action?: React.ReactNode;
     style?: React.CSSProperties;
+    glass?: boolean;
 }
 
-export default function Card({ title, children, className, action, style }: CardProps) {
+export default function Card({ title, children, className, action, style, glass }: CardProps) {
     return (
-        <div className={`${styles.card} ${className || ''}`} style={style}>
+        <div className={`${styles.card} ${glass ? 'glass-card' : ''} ${className || ''}`} style={style}>
             {(title || action) && (
                 <div className={styles.header}>
                     {title && <h3 className={styles.title}>{title}</h3>}
