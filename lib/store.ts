@@ -39,6 +39,7 @@ export interface Player {
     courtSide?: 'left' | 'right' | 'both';
     avatar?: string;
     password?: string;
+    isAdmin?: boolean; // NEW
 }
 
 export interface Match {
@@ -340,7 +341,8 @@ export const getCurrentUser = async (): Promise<Player | null> => {
             course: profile.course,
             year: profile.year,
             dob: profile.dob,
-            avatar: profile.avatar_url
+            avatar: profile.avatar_url,
+            isAdmin: profile.is_admin // NEW
         };
     } catch (e) {
         console.error("Error in getCurrentUser:", e);

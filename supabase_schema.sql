@@ -1,5 +1,7 @@
--- Enable UUID extension if not already enabled
 create extension if not exists "uuid-ossp";
+
+-- 0. Update Profiles Table (Admin)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 
 -- 1. Create ELO History Table
 create table if not exists elo_history (
