@@ -37,14 +37,20 @@ export default function Home() {
 
       // 2. Get Upcoming Bookings
       const bookings = await getBookings();
-      const today = new Date().toISOString().split('T')[0];
-      const myUpcoming = bookings.filter(b =>
-        b.status === 'confirmed' &&
-        b.date >= today
-      ).sort((a, b) => a.date.localeCompare(b.date));
-      setUpcoming(myUpcoming);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+
+      const myUpcoming = bookings.filter(b => {
+        const bDate = new Date(b.date + 'T' + b.time);
+        const isParticipant = (b.participants || []).some(p => p.id === currentUser.id) || b.userId === currentUser.id;
+        return (b.status === 'confirmed' || b.status === 'open') && // Allow open as upcoming if I'm in it
+          bDate >= today &&
+          isParticipant;
+      }).sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime());
 
       setUpcoming(myUpcoming);
+
+
 
       // 3. Get Recent Activity (Finished Matches)
       const allMatches = await getMatches();
@@ -151,28 +157,64 @@ export default function Home() {
         <div className={styles.heroContent}>
           {nextMatch ? (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', opacity: 0.8, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <span>My Next Match</span>
-                <span>{nextMatch.clubName}</span>
-              </div>
+              {nextMatch.status === 'open' ? (
+                // OPEN MATCH STATE (Lobby)
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', opacity: 0.8, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <span>Match Lobby</span>
+                    <span>{nextMatch.clubName}</span>
+                  </div>
 
-              <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.5rem' }}>
-                vs {nextMatch.participants?.filter(p => !p.name.includes(user?.name || '')).map(p => p.name.split(' ')[0]).join(' & ') || "Opponent"}
-              </div>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1 }}>
+                      {(nextMatch.participants?.length || 1)}/4 Players
+                    </div>
+                    <div style={{ fontSize: '1rem', opacity: 0.7, marginTop: '8px' }}>
+                      Waiting for opponents...
+                    </div>
+                  </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem', opacity: 0.9 }}>
-                <Clock size={18} />
-                <span style={{ fontWeight: 600 }}>{nextMatch.date} • {nextMatch.time}</span>
-              </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem', marginTop: '1rem', opacity: 0.9 }}>
+                    <Clock size={18} />
+                    <span style={{ fontWeight: 600 }}>{nextMatch.date} • {nextMatch.time}</span>
+                  </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <Link href={`/matches`} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', flex: 1, fontWeight: 700 }}>
-                  Enter Score
-                </Link>
-                <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>
-                  Chat
-                </button>
-              </div>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', flex: 1, cursor: 'default' }}>
+                      Invite Friends
+                    </button>
+                    <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>
+                      Chat
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // CONFIRMED / VS STATE
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', opacity: 0.8, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <span>My Next Match</span>
+                    <span>{nextMatch.clubName}</span>
+                  </div>
+
+                  <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '0.5rem' }}>
+                    vs {nextMatch.participants?.filter(p => !p.name.includes(user?.name || '')).map(p => p.name.split(' ')[0]).join(' & ') || "Opponent"}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem', opacity: 0.9 }}>
+                    <Clock size={18} />
+                    <span style={{ fontWeight: 600 }}>{nextMatch.date} • {nextMatch.time}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <Link href={`/matches`} className="btn" style={{ background: 'white', color: 'hsl(222, 47%, 11%)', flex: 1, fontWeight: 700 }}>
+                      Enter Score
+                    </Link>
+                    <button className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'white', flex: 1 }}>
+                      Chat
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
@@ -199,14 +241,15 @@ export default function Home() {
               {recommendedMatches.map(match => (
                 <div key={match.id} style={{ minWidth: '280px', scrollSnapAlign: 'start' }}>
                   <Card glass style={{ height: '100%', position: 'relative', border: match.isNemesis ? '1px solid hsl(var(--secondary))' : undefined }}>
-                    {match.playerCount === 3 && (
+                    {(match.playerCount || 0) < 4 && (
                       <div style={{
                         position: 'absolute', top: -10, right: 10,
-                        background: 'hsl(var(--success))', color: 'black',
+                        background: match.playerCount === 3 ? 'hsl(var(--destructive))' : 'hsl(var(--success))',
+                        color: match.playerCount === 3 ? 'white' : 'black',
                         fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
-                        boxShadow: '0 4px 12px hsl(var(--success) / 0.4)'
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                       }}>
-                        NEED 1 MORE!
+                        {match.playerCount === 3 ? '1 SPOT LEFT! 🔥' : `${4 - (match.playerCount || 0)} SPOTS LEFT`}
                       </div>
                     )}
                     <div style={{ marginBottom: '1rem' }}>

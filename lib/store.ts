@@ -8,7 +8,7 @@ export interface Booking {
     clubName: string;
     date: string;
     time: string;
-    status: 'pending' | 'confirmed' | 'rejected';
+    status: 'pending' | 'confirmed' | 'rejected' | 'open';
     userId: string;
     userName: string;
     participants?: { id: string, name: string }[];
@@ -160,6 +160,27 @@ export const getMatches = async (): Promise<Match[]> => {
     }));
 };
 
+export const getSlotAvailability = async (date: string, clubId: string): Promise<Record<string, number>> => {
+    // Returns number of bookings per time slot
+    const { data, error } = await supabase
+        .from('bookings')
+        .select('time')
+        .eq('date', date)
+        .eq('club_id', clubId)
+        .neq('status', 'rejected');
+
+    if (error) {
+        console.error("Error fetching availability:", error);
+        return {};
+    }
+
+    const counts: Record<string, number> = {};
+    data.forEach((b: any) => {
+        counts[b.time] = (counts[b.time] || 0) + 1;
+    });
+    return counts;
+};
+
 // --- Actions ---
 
 export const createBooking = async (booking: {
@@ -190,8 +211,8 @@ export const createBooking = async (booking: {
                 user_id: booking.userId,
                 date: booking.date,
                 time: booking.time,
-                status: 'pending',
-                player_1_id: booking.userId // Creator is Player 1
+                status: 'open',
+                player_1_id: booking.userId
             }
         ])
         .select();
@@ -335,12 +356,25 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
     const user = await getCurrentUser();
     if (!user) return [];
 
-    // 2. Get Open Bookings (Pending, Future Date)
-    const bookings = await getBookings(); // fetches all, we filter client side for now to implement logic
-    const openBookings = bookings.filter(b =>
-        new Date(b.date + 'T' + b.time) > new Date() &&
-        b.status === 'pending'
-    );
+    // 2. Get Open Bookings (Pending/Open, Future Date)
+    const bookings = await getBookings();
+    const openBookings = bookings.filter(b => {
+        // Robust Date Check
+        const matchDate = new Date(b.date + 'T' + b.time); // e.g., 2024-12-18T20:00
+        const now = new Date();
+
+        // Status Check: 'pending' OR 'open'
+        const isOpen = b.status === 'pending' || b.status === 'open';
+
+        // Check if I am already in it
+        const isMyMatch = b.userId === userId ||
+            b.player1Id === userId ||
+            b.player2Id === userId ||
+            b.player3Id === userId ||
+            b.player4Id === userId;
+
+        return matchDate > now && isOpen && !isMyMatch;
+    });
 
     // Get simple "Nemesis" list (players user lost to)
     const matches = await getMatches();
@@ -350,8 +384,10 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
         // Need to identify user team. 
         // User is team 1 if submitted by or name match 'You'.
         // Simplified: If user's name is in team 1 and winner is 2.
-        const userInT1 = m.team1Names.includes(user.name) || m.team1Names.includes('You');
-        const userInT2 = m.team2Names.includes(user.name) || m.team2Names.includes('You');
+        const t1 = m.team1Names || '';
+        const t2 = m.team2Names || '';
+        const userInT1 = t1.includes(user.name) || t1.includes('You');
+        const userInT2 = t2.includes(user.name) || t2.includes('You');
 
         // Logic: if user lost, add opponents to Nemesis
         if (userInT1 && m.winner === 2) {
