@@ -7,6 +7,8 @@ import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
 import MatchDetailsModal from '@/components/MatchDetailsModal';
+import UserDisplay from '@/components/UserDisplay';
+import { getFlagEmoji } from '@/common/countries';
 import PlayerCardModal from '@/components/PlayerCardModal'; // NEW
 import EloChart from '@/components/EloChart';
 import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, Player, Booking, Match } from '@/lib/store';
@@ -217,7 +219,9 @@ export default function Home() {
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.25rem', marginBottom: '0.25rem', opacity: 0.9 }}>Good evening,</h1>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800 }}>{user.name.split(' ')[0]}</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800 }}>
+            {user.country ? getFlagEmoji(user.country) : ''} {user.name.split(' ')[0]}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -230,11 +234,13 @@ export default function Home() {
           <div style={{ position: 'relative' }}>
             <div style={{
               width: '44px', height: '44px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
+              background: user?.avatar
+                ? `url(${supabase.storage.from('avatars').getPublicUrl(user.avatar).data.publicUrl}) center/cover`
+                : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 'bold', color: '#0f172a', border: '2px solid rgba(255,255,255,0.1)'
             }}>
-              {user?.name?.charAt(0) || 'U'}
+              {!user?.avatar && (user?.name?.charAt(0) || 'U')}
             </div>
             <div style={{
               position: 'absolute', top: 0, right: 0, width: '12px', height: '12px',
@@ -320,7 +326,7 @@ export default function Home() {
               <div style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>No Upcoming Matches</div>
               <p style={{ opacity: 0.7, marginBottom: '1.5rem' }}>You're free! Find a partner or join an open match below.</p>
               <Link href="/book" className="btn" style={{ background: 'white', color: 'hsl(var(--background))', fontWeight: 700 }}>
-                Find a Match
+                Book an Empty Court
               </Link>
             </div>
           )}

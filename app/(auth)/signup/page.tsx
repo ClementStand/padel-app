@@ -4,11 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { Eye, EyeOff, Check, XCircle } from 'lucide-react';
+import { COUNTRIES, getFlagEmoji } from '@/common/countries';
 
 export default function SignupPage() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [name, setName] = useState('');
 
     // New Mandatory Fields
@@ -22,8 +27,13 @@ export default function SignupPage() {
 
     const handleSignup = async () => {
         // Validation
-        if (!email || !password || !name || !country || !course || !year || !dob || !profileFile) {
+        if (!email || !password || !confirmPassword || !name || !country || !course || !year || !dob || !profileFile) {
             alert("Please fill in ALL fields, including profile picture.");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            alert("Passwords do not match!");
             return;
         }
 
@@ -40,39 +50,54 @@ export default function SignupPage() {
                         country,
                         course,
                         year,
-                        dob
-                        // We will handle avatar upload separately or via a trigger if needed, 
-                        // but storing metadata here helps triggers.
+                        dob,
+                        avatar_path: null // Will be updated after upload
                     }
                 }
             });
 
+            // Predict path for metadata (Trigger needs this!)
+            let finalAvatarPath = '';
+            if (data.user && profileFile) {
+                const fileExt = profileFile.name.split('.').pop();
+                finalAvatarPath = `${data.user.id}/avatar.${fileExt}`;
+
+                // Immediate metadata update to ensure Trigger gets the right path
+                await supabase.auth.updateUser({
+                    data: { avatar_path: finalAvatarPath }
+                });
+            }
+
             if (error) throw error;
 
             if (data.user) {
-                // 2. Upload Profile Picture (if user is created)
+                // 2. Upload Profile Picture
+                // Note: This might fail if Email Confirmation is ON (no session yet).
+                // If it fails, the Trigger will still create the profile with the metadata data, 
+                // but the avatar_url might be empty or valid-but-not-uploaded.
                 if (profileFile) {
                     const fileExt = profileFile.name.split('.').pop();
                     const fileName = `${data.user.id}/avatar.${fileExt}`;
 
+                    // Attempt upload
                     const { error: uploadError } = await supabase.storage
-                        .from('avatars') // Ensure this bucket exists
+                        .from('avatars')
                         .upload(fileName, profileFile, { upsert: true });
 
                     if (uploadError) {
-                        console.error('Error uploading avatar:', uploadError);
-                        // Show detailed error to help debugging
-                        alert(`Account created, but avatar upload failed: ${uploadError.message}`);
+                        console.warn('Avatar upload deferred (likely email verification pending):', uploadError);
+                        // We do NOT block flow. The user can upload later.
                     } else {
-                        // Update profile with avatar URL if needed, 
-                        // or rely on a consistent path convention / public URL construction.
-                        // Ideally we update the separate 'profiles' table or user metadata.
-                        // Let's try updating metadata for now as fallback.
+                        // If successful, update the user metadata so the Trigger (or future logic) knows about it
                         await supabase.auth.updateUser({
                             data: { avatar_path: fileName }
                         });
                     }
                 }
+
+                // 3. NO EXPLICIT INSERT needed here anymore.
+                // The 'on_auth_user_created' Postgres Trigger will handle creating the profile row
+                // using the metadata we passed in signUp(). This avoids RLS issues.
             }
 
             alert("Success! Please check your email to verify your account.");
@@ -97,12 +122,20 @@ export default function SignupPage() {
                 />
 
                 {/* New Mandatory Fields */}
-                <input
+                {/* Country Dropdown */}
+                <select
                     className="input"
-                    placeholder="Country"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                />
+                    style={{ appearance: 'none', background: 'hsl(var(--input))', color: 'white' }}
+                >
+                    <option value="" disabled>Select Country</option>
+                    {COUNTRIES.map(c => (
+                        <option key={c.code} value={c.code}>
+                            {getFlagEmoji(c.code)} {c.name}
+                        </option>
+                    ))}
+                </select>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <input
                         className="input"
@@ -144,13 +177,69 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                 />
-                <input
-                    className="input"
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
+
+                {/* Password Field */}
+                <div style={{ position: 'relative' }}>
+                    <input
+                        className="input"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        style={{ paddingRight: '46px' }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                            position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                            background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                            padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                        aria-label="Toggle password visibility"
+                    >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                </div>
+
+                {/* Confirm Password Field */}
+                <div style={{ position: 'relative' }}>
+                    <input
+                        className="input"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        style={{ paddingRight: '46px', borderColor: confirmPassword && password === confirmPassword ? 'hsl(var(--success))' : undefined }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                            position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                            background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                            padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                        aria-label="Toggle confirm password visibility"
+                    >
+                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                </div>
+
+                {/* Match Feedback */}
+                {password && confirmPassword && (
+                    <div style={{
+                        fontSize: '0.8rem',
+                        color: password === confirmPassword ? 'hsl(var(--success))' : 'hsl(var(--destructive))',
+                        display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-0.5rem'
+                    }}>
+                        {password === confirmPassword ? (
+                            <><Check size={14} /> Passwords match</>
+                        ) : (
+                            <><XCircle size={14} /> Passwords do not match</>
+                        )}
+                    </div>
+                )}
                 <button
                     className="btn btn-primary"
                     onClick={handleSignup}

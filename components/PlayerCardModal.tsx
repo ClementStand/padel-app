@@ -2,6 +2,7 @@
 
 import { X, Trophy, Activity, Hand, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { COUNTRIES, getFlagEmoji } from '@/common/countries';
 
 interface PlayerCardProps {
     player: any; // Using any for flexibility or standard Player interface if available in context
@@ -48,8 +49,11 @@ export default function PlayerCardModal({ player, isOpen, onClose, currentUserId
                         {!player.avatar && (player.name?.charAt(0) || 'P')}
                     </div>
 
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{player.name}</h2>
-                    {player.country && <div style={{ opacity: 0.6, fontSize: '0.9rem', marginTop: '4px' }}>{player.country}</div>}
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {player.country && <span style={{ fontSize: '1.2rem' }}>{getFlagEmoji(player.country)}</span>}
+                        {player.name}
+                    </h2>
+                    {player.country && <div style={{ opacity: 0.6, fontSize: '0.9rem', marginTop: '4px' }}>{COUNTRIES.find(c => c.code === player.country)?.name || player.country}</div>}
 
                     <div style={{
                         marginTop: '16px', background: 'rgba(56, 189, 248, 0.1)', color: 'hsl(var(--primary))',

@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getCurrentUser } from '@/lib/store';
+import OnboardingModal from './OnboardingModal';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
+    const [showOnboarding, setShowOnboarding] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -13,8 +16,15 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 router.push('/login');
-                return; // ⛔️ Stop here! Don't setLoading(false) so children never render.
+                return;
             }
+
+            // Check if user needs onboarding (Elo 0)
+            const user = await getCurrentUser();
+            if (user && user.elo === 0) {
+                setShowOnboarding(true);
+            }
+
             setLoading(false);
         };
 
@@ -25,5 +35,13 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
     }
 
-    return <>{children}</>;
+    return (
+        <>
+            {children}
+            <OnboardingModal
+                isOpen={showOnboarding}
+                onComplete={() => setShowOnboarding(false)}
+            />
+        </>
+    );
 }

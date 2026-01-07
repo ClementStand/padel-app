@@ -10,6 +10,7 @@ import EloChart from '@/components/EloChart';
 import { getPlayers, getCurrentUser, getEloHistory, getMatches, updatePlayer, Player, EloHistory, Match } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
+import { getFlagEmoji } from '@/common/countries';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -98,6 +99,12 @@ export default function ProfilePage() {
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading profile...</div>;
     if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>User not found</div>;
 
+    const avatarUrl = user.avatar?.startsWith('http')
+        ? user.avatar
+        : user.avatar
+            ? supabase.storage.from('avatars').getPublicUrl(user.avatar).data.publicUrl
+            : null;
+
     return (
         <div style={{ padding: '1rem', paddingTop: '1.5rem', paddingBottom: '90px' }}>
             {/* Header Card */}
@@ -131,18 +138,50 @@ export default function ProfilePage() {
 
                 <div style={{
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 16px auto',
-                    background: user.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(user.avatar).data.publicUrl}) center/cover` : '#334155',
+                    background: avatarUrl ? `url(${avatarUrl}) center/cover` : '#334155',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '4px solid rgba(255,255,255,0.1)', fontSize: '2.5rem', fontWeight: 700
+                    border: '4px solid rgba(255,255,255,0.1)', fontSize: '2.5rem', fontWeight: 700,
+                    overflow: 'hidden'
                 }}>
-                    {!user.avatar && (user.name.charAt(0) || 'P')}
+                    {!avatarUrl && (user.name.charAt(0) || 'P')}
                 </div>
 
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '4px' }}>{user.name}</h1>
-                <div style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '16px' }}>{user.country} • {user.course || 'Player'}</div>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '4px' }}>
+                    {user.country && <span style={{ marginRight: '8px' }}>{getFlagEmoji(user.country)}</span>}
+                    {user.name}
+                </h1>
+                <div style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '16px' }}>{user.course || 'Player'}</div>
 
                 {isEditing ? (
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {/* Avatar Upload */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Profile Picture</label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        const file = e.target.files[0];
+                                        const fileExt = file.name.split('.').pop();
+                                        const fileName = `${user.id}/avatar.${fileExt}`;
+
+                                        // Upload
+                                        const { error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+                                        if (error) {
+                                            alert("Upload failed: " + error.message);
+                                        } else {
+                                            // Update Profile
+                                            await updatePlayer({ id: user.id, avatar: fileName });
+                                            setUser(prev => prev ? ({ ...prev, avatar: fileName }) : null);
+                                            alert("Avatar updated!");
+                                        }
+                                    }
+                                }}
+                                style={{ fontSize: '0.8rem', color: 'white', width: '180px' }}
+                            />
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Handedness</label>
                             <select
@@ -167,7 +206,7 @@ export default function ProfilePage() {
                             </select>
                         </div>
                         <button className="btn btn-primary" onClick={handleSave} style={{ marginTop: '8px' }}>
-                            <Check size={16} style={{ marginRight: '8px' }} /> Save Profile
+                            <Check size={16} style={{ marginRight: '8px' }} /> Save Changes
                         </button>
                     </div>
                 ) : (

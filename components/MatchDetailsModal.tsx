@@ -1,6 +1,7 @@
 import { X, Trophy, Calendar, Clock, MapPin } from 'lucide-react';
 import { Booking, Player } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
+import { getFlagEmoji } from '@/common/countries';
 import { useState, useEffect } from 'react';
 
 interface MatchDetailsModalProps {
@@ -105,7 +106,8 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, on
                                 </div>
                                 {slot.player ? (
                                     <>
-                                        <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '2px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                                            {slot.player.country && <span>{getFlagEmoji(slot.player.country)}</span>}
                                             {slot.player.name.split(' ')[0]}
                                         </div>
                                         <div style={{ fontSize: '0.75rem', opacity: 0.7, display: 'flex', alignItems: 'center', gap: '4px' }}>

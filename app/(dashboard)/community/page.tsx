@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { getPlayers, Player } from '@/lib/store';
 import ProfileModal from '@/components/ProfileModal';
+import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 export default function CommunityPage() {
@@ -50,27 +51,37 @@ export default function CommunityPage() {
             </div>
 
             <div className={styles.list}>
-                {filteredPlayers.map((player, index) => (
-                    <div key={player.id} className={styles.card} onClick={() => setSelectedPlayer(player)}>
-                        <div className={styles.rank}>#{index + 1}</div>
-                        <div className={styles.avatar}>
-                            {player.name.charAt(0)}
-                        </div>
-                        <div className={styles.info}>
-                            <div className={styles.nameRow}>
-                                <span className={styles.name}>{player.name}</span>
-                                <span className={styles.flag}>{getFlag(player.country)}</span>
+                {filteredPlayers.map((player, index) => {
+                    const avatarUrl = player.avatar?.startsWith('http')
+                        ? player.avatar
+                        : player.avatar
+                            ? supabase.storage.from('avatars').getPublicUrl(player.avatar).data.publicUrl
+                            : null;
+
+                    return (
+                        <div key={player.id} className={styles.card} onClick={() => setSelectedPlayer(player)}>
+                            <div className={styles.rank}>#{index + 1}</div>
+                            <div className={styles.avatar} style={{
+                                background: avatarUrl ? `url(${avatarUrl}) center/cover` : undefined
+                            }}>
+                                {!avatarUrl && player.name.charAt(0)}
                             </div>
-                            <div className={styles.meta}>
-                                <span>Matches: {player.matchesPlayed}</span>
+                            <div className={styles.info}>
+                                <div className={styles.nameRow}>
+                                    <span className={styles.name}>{player.name}</span>
+                                    <span className={styles.flag}>{getFlag(player.country)}</span>
+                                </div>
+                                <div className={styles.meta}>
+                                    <span>Matches: {player.matchesPlayed}</span>
+                                </div>
+                            </div>
+                            <div className={styles.elo}>
+                                <span>{Math.round(player.elo)}</span>
+                                <span className={styles.eloLabel}>ELO</span>
                             </div>
                         </div>
-                        <div className={styles.elo}>
-                            <span>{Math.round(player.elo)}</span>
-                            <span className={styles.eloLabel}>ELO</span>
-                        </div>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
 
             {selectedPlayer && (

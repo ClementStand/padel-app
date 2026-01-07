@@ -159,7 +159,9 @@ export const getPlayers = async (): Promise<Player[]> => {
         name: p.full_name || 'Anonymous',
         elo: p.elo,
         wins: p.wins,
-        matchesPlayed: p.matches_played
+        matchesPlayed: p.matches_played,
+        avatar: p.avatar_url,
+        country: p.country
     }));
 };
 
@@ -343,6 +345,11 @@ export const updatePlayer = async (player: Partial<Player> & { id: string }) => 
     if (player.country !== undefined) updates.country = player.country;
     if (player.dob !== undefined) updates.dob = player.dob;
 
+    // Fix: Map avatar and other fields
+    if (player.avatar !== undefined) updates.avatar_url = player.avatar;
+    if (player.course !== undefined) updates.course = player.course;
+    if (player.year !== undefined) updates.year = player.year;
+
     if (Object.keys(updates).length === 0) return;
 
     const { error } = await supabase
@@ -387,13 +394,20 @@ export const getCurrentUser = async (): Promise<Player | null> => {
             console.error('Profile missing, attempting self-healing...', error);
 
             // Self-healing: Create profile if missing
+            // Attempt to recover data from Auth Metadata if available
+            const meta = user.user_metadata || {};
+
             const newProfile = {
                 id: user.id,
-                full_name: user.user_metadata.full_name || 'Player',
-                elo: 0, // Set to 0 to trigger Onboarding
+                full_name: meta.full_name || 'Player',
+                elo: 0,
                 wins: 0,
                 matches_played: 0,
-                avatar_url: user.user_metadata.avatar_url || ''
+                avatar_url: meta.avatar_path || meta.avatar_url || '',
+                country: meta.country || null,
+                course: meta.course || null,
+                year: meta.year || null,
+                dob: meta.dob || null
             };
 
             const { error: insertError } = await supabase.from('profiles').upsert([newProfile]);
@@ -403,14 +417,14 @@ export const getCurrentUser = async (): Promise<Player | null> => {
                 // Fallback only if insert fails
                 return {
                     id: user.id,
-                    name: user.user_metadata.full_name || 'Unknown',
+                    name: meta.full_name || 'Unknown',
                     elo: 1200,
                     wins: 0,
                     matchesPlayed: 0
                 };
             }
 
-            // Return the new profile
+            // Return the new profile details (mapped to Player interface)
             return {
                 id: user.id,
                 name: newProfile.full_name,
@@ -418,6 +432,10 @@ export const getCurrentUser = async (): Promise<Player | null> => {
                 wins: newProfile.wins,
                 matchesPlayed: newProfile.matches_played,
                 avatar: newProfile.avatar_url,
+                country: newProfile.country,
+                course: newProfile.course,
+                year: newProfile.year,
+                dob: newProfile.dob,
                 isAdmin: false
             };
         }
@@ -425,15 +443,15 @@ export const getCurrentUser = async (): Promise<Player | null> => {
         return {
             id: profile.id,
             name: profile.full_name || 'Unknown',
-            elo: profile.elo || 1200,
-            wins: profile.wins || 0,
-            matchesPlayed: profile.matches_played || 0,
+            elo: profile.elo ?? 1200, // Fix: Allow 0 logic
+            wins: profile.wins ?? 0,
+            matchesPlayed: profile.matches_played ?? 0,
             country: profile.country,
             course: profile.course,
             year: profile.year,
             dob: profile.dob,
             avatar: profile.avatar_url,
-            isAdmin: profile.is_admin, // NEW
+            isAdmin: profile.is_admin,
             handedness: profile.hand_preference,
             courtSide: profile.court_side_preference
         };
