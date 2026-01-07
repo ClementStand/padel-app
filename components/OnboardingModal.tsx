@@ -6,7 +6,7 @@ import { Trophy, Star, Activity, Medal } from 'lucide-react';
 
 interface OnboardingModalProps {
     isOpen: boolean;
-    onComplete: () => void;
+    onComplete: (elo?: number) => void;
 }
 
 export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
@@ -18,7 +18,14 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
         setLoading(true);
         try {
             await onboardUser(level);
-            onComplete();
+
+            // Map level to ELO for optimistic update (matches store.ts)
+            let elo = 1000;
+            if (level === 2) elo = 1200;
+            if (level === 3) elo = 1450;
+            if (level === 4) elo = 1700;
+
+            onComplete(elo);
         } catch (e) {
             console.error(e);
             alert("Failed to save. Please try again.");

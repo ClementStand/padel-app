@@ -40,7 +40,17 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            // 1. Create user in Supabase Auth
+            // 1. Generate Avatar Path EARLY (before User ID exists)
+            // We use a random ID to ensure we can pass it to signUp metadata immediately.
+            // This is critical because unverified users cannot update metadata or profiles later.
+            let avatarPath = null;
+            if (profileFile) {
+                const fileExt = profileFile.name.split('.').pop();
+                const randomId = Math.random().toString(36).substring(2, 15);
+                avatarPath = `u_${Date.now()}_${randomId}.${fileExt}`;
+            }
+
+            // 2. Create user (Pass avatar_path in metadata)
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -51,54 +61,31 @@ export default function SignupPage() {
                         course,
                         year,
                         dob,
-                        avatar_path: null // Will be updated after upload
+                        avatar_path: avatarPath // <-- Passed here!
                     }
                 }
             });
 
-            // Predict path for metadata (Trigger needs this!)
-            let finalAvatarPath = '';
-            if (data.user && profileFile) {
-                const fileExt = profileFile.name.split('.').pop();
-                finalAvatarPath = `${data.user.id}/avatar.${fileExt}`;
-
-                // Immediate metadata update to ensure Trigger gets the right path
-                await supabase.auth.updateUser({
-                    data: { avatar_path: finalAvatarPath }
-                });
-            }
-
             if (error) throw error;
 
-            if (data.user) {
-                // 2. Upload Profile Picture
-                // Note: This might fail if Email Confirmation is ON (no session yet).
-                // If it fails, the Trigger will still create the profile with the metadata data, 
-                // but the avatar_url might be empty or valid-but-not-uploaded.
-                if (profileFile) {
-                    const fileExt = profileFile.name.split('.').pop();
-                    const fileName = `${data.user.id}/avatar.${fileExt}`;
+            if (data.user && avatarPath && profileFile) {
+                // 3. Upload Profile Picture to the pre-determined path
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(avatarPath, profileFile, { upsert: true });
 
-                    // Attempt upload
-                    const { error: uploadError } = await supabase.storage
-                        .from('avatars')
-                        .upload(fileName, profileFile, { upsert: true });
-
-                    if (uploadError) {
-                        console.warn('Avatar upload deferred (likely email verification pending):', uploadError);
-                        // We do NOT block flow. The user can upload later.
-                    } else {
-                        // If successful, update the user metadata so the Trigger (or future logic) knows about it
-                        await supabase.auth.updateUser({
-                            data: { avatar_path: fileName }
-                        });
-                    }
+                if (uploadError) {
+                    console.warn('Avatar upload failed:', uploadError);
+                    // Note: If upload fails, the DB still has the path. 
+                    // User will see "broken image" until they fix it.
+                    // But this is better than "missing image" for successful uploads.
                 }
-
-                // 3. NO EXPLICIT INSERT needed here anymore.
-                // The 'on_auth_user_created' Postgres Trigger will handle creating the profile row
-                // using the metadata we passed in signUp(). This avoids RLS issues.
             }
+
+            // No redundancy needed. The Trigger handles the profile creation using the metadata we passed.
+
+            // 3. NO EXPLICIT INSERT needed here anymore.
+            // using the metadata we passed in signUp(). This avoids RLS issues.
 
             alert("Success! Please check your email to verify your account.");
             router.push('/login');

@@ -12,6 +12,13 @@ import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 import { getFlagEmoji } from '@/common/countries';
 
+const getAge = (dob: string | null | undefined): number | null => {
+    if (!dob) return null;
+    const diff = Date.now() - new Date(dob).getTime();
+    const ageDate = new Date(diff);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+};
+
 export default function ProfilePage() {
     const router = useRouter();
     const [user, setUser] = useState<Player | null>(null);
@@ -128,14 +135,6 @@ export default function ProfilePage() {
                     </Link>
                 </div>
 
-                <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: '8px', zIndex: 10 }}>
-                    <Link href="/settings">
-                        <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', borderColor: 'rgba(255,255,255,0.2)' }}>
-                            <Settings size={16} /> <span className="settings-text">Settings</span>
-                        </button>
-                    </Link>
-                </div>
-
                 <div style={{
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 16px auto',
                     background: avatarUrl ? `url(${avatarUrl}) center/cover` : '#334155',
@@ -150,7 +149,9 @@ export default function ProfilePage() {
                     {user.country && <span style={{ marginRight: '8px' }}>{getFlagEmoji(user.country)}</span>}
                     {user.name}
                 </h1>
-                <div style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '16px' }}>{user.course || 'Player'}</div>
+                <div style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '16px' }}>
+                    {getAge(user.dob)} Years Old • {user.course || 'Player'} {user.year ? `(${user.year})` : ''}
+                </div>
 
                 {isEditing ? (
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -261,6 +262,6 @@ export default function ProfilePage() {
                     Log Out
                 </button>
             </div>
-        </div>
+        </div >
     );
 }

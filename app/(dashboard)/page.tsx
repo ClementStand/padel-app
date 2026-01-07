@@ -476,11 +476,15 @@ export default function Home() {
       {user && user.elo === 0 && (
         <OnboardingModal
           isOpen={true}
-          onComplete={async () => {
-            // Refresh user to get new ELO
+          onComplete={async (newElo) => {
+            // Optimistic Update to prevent double-click requirement
+            if (user && newElo) {
+              setUser({ ...user, elo: newElo });
+            }
+
+            // Background refresh to be safe
             const u = await getCurrentUser();
-            setUser(u);
-            // Also refresh recs as they depend on ELO
+            if (u) setUser(u);
             loadRecs();
           }}
         />
