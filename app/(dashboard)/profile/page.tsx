@@ -139,7 +139,7 @@ export default function ProfilePage() {
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto 16px auto',
                     background: avatarUrl ? `url(${avatarUrl}) center/cover` : '#334155',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '4px solid rgba(255,255,255,0.1)', fontSize: '2.5rem', fontWeight: 700,
+                    fontSize: '2.5rem', fontWeight: 700,
                     overflow: 'hidden'
                 }}>
                     {!avatarUrl && (user.name.charAt(0) || 'P')}

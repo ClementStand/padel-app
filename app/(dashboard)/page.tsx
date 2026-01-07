@@ -238,7 +238,7 @@ export default function Home() {
                 ? `url(${supabase.storage.from('avatars').getPublicUrl(user.avatar).data.publicUrl}) center/cover`
                 : 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 'bold', color: '#0f172a', border: '2px solid rgba(255,255,255,0.1)'
+              fontWeight: 'bold', color: '#0f172a'
             }}>
               {!user?.avatar && (user?.name?.charAt(0) || 'U')}
             </div>

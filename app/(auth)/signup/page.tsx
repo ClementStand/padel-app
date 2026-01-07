@@ -32,6 +32,18 @@ export default function SignupPage() {
             return;
         }
 
+        // Course Validation: All Caps
+        if (!/^[A-Z0-9\s]+$/.test(course)) {
+            alert("Course must be in capital letters (e.g. BBA, BAIB, MSC).");
+            return;
+        }
+
+        // Year Validation: Numeric
+        if (!/^\d+$/.test(year)) {
+            alert("Year must be a number (e.g. 1, 2, 2026).");
+            return;
+        }
+
         if (password !== confirmPassword) {
             alert("Passwords do not match!");
             return;

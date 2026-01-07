@@ -99,8 +99,7 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, on
                                     width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px',
                                     background: slot.player?.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(slot.player.avatar).data.publicUrl}) center/cover` : '#334155',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '1.2rem', fontWeight: 700, color: 'white',
-                                    border: '2px solid rgba(255,255,255,0.1)'
+                                    fontWeight: 'bold', color: 'white',
                                 }}>
                                     {!slot.player?.avatar && (slot.player?.name?.charAt(0) || '?')}
                                 </div>
