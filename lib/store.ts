@@ -16,6 +16,11 @@ export interface Booking {
     player2Id?: string;
     player3Id?: string;
     player4Id?: string;
+    // Computed properties for UI/Logic
+    avgElo?: number;
+    playerCount?: number;
+    hasKnownPlayer?: boolean;
+    eloDiff?: number;
 }
 
 export interface Club {

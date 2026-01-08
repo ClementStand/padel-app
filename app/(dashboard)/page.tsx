@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles } from 'lucide-react';
+import { PlusCircle, Trophy, TrendingUp, Calendar, Clock, Sparkles, Plus, MapPin } from 'lucide-react';
 import Card from '@/components/Card';
 import ProfileModal from '@/components/ProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -11,7 +11,7 @@ import UserDisplay from '@/components/UserDisplay';
 import { getFlagEmoji } from '@/common/countries';
 import PlayerCardModal from '@/components/PlayerCardModal'; // NEW
 import EloChart from '@/components/EloChart';
-import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, Player, Booking, Match } from '@/lib/store';
+import { getCurrentUser, getBookings, getPlayers, getMatches, getRecommendedMatches, joinMatch, leaveMatch, Player, Booking, Match } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
@@ -56,7 +56,6 @@ export default function Home() {
       }).sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime());
 
       setUpcoming(myUpcoming);
-
 
 
       // 3. Get Recent Activity (Finished Matches)
@@ -343,70 +342,114 @@ export default function Home() {
               Join a Match
             </h2>
             <div style={{ display: 'flex', overflowX: 'auto', gap: '1rem', paddingBottom: '1rem', scrollSnapType: 'x mandatory' }}>
-              {recommendedMatches.map(match => (
-                <div key={match.id} style={{ minWidth: '280px', scrollSnapAlign: 'start' }}>
-                  {/* Made Card clickable to open details */}
-                  <div onClick={() => openMatchDetails(match)} style={{ height: '100%', cursor: 'pointer' }}>
-                    <Card glass style={{ height: '100%', position: 'relative' }}>
-                      {(match.playerCount || 0) < 4 && (
-                        <div style={{
-                          position: 'absolute', top: 12, right: 12,
-                          background: match.playerCount === 3 ? 'hsl(var(--destructive))' : 'hsl(var(--success))',
-                          color: match.playerCount === 3 ? 'white' : 'black',
-                          fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                          zIndex: 10
-                        }}>
-                          {match.playerCount === 3 ? '1 SPOT LEFT! 🔥' : `${4 - (match.playerCount || 0)} SPOTS LEFT`}
-                        </div>
-                      )}
-                      <div style={{ marginBottom: '1rem', paddingRight: '110px' }}>
-                        <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '4px' }}>{match.clubName} • {match.date}</div>
-                        <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.playerCount}/4 Players</div>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
-                        {match.participants?.map(p => (
-                          <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px' }}>
-                            <div onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedPlayerForCard({ ...p, matchesPlayed: 0, wins: 0 });
-                            }} style={{
-                              width: '36px', height: '36px', borderRadius: '50%',
-                              background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '0.9rem', color: 'black', fontWeight: 'bold',
-                              cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)',
-                              marginBottom: '4px'
-                            }}>
-                              {!p.avatar && p.name.charAt(0)}
-                            </div>
-                            <div style={{ fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {p.name.split(' ')[0]}
-                            </div>
-                            <div style={{ fontSize: '0.6rem', opacity: 0.6 }}>
-                              ({Math.round(p.elo || 1200)})
-                            </div>
+              {recommendedMatches.map(match => {
+                const filledSlots = match.participants || [];
+                const emptySlots = 4 - (match.playerCount || 0);
+                const slots = [
+                  ...filledSlots,
+                  ...Array.from({ length: emptySlots }).map((_, i) => ({ id: `empty-${i}`, isEmpty: true }))
+                ];
+
+                const isUserInMatch = match.participants?.some(p => p.id === user?.id);
+                const isFull = (match.playerCount || 0) >= 4;
+
+                return (
+                  <div key={match.id} style={{ minWidth: '260px', scrollSnapAlign: 'start' }}>
+                    <div onClick={() => openMatchDetails(match)} style={{ height: '100%', cursor: 'pointer' }}>
+                      <Card glass style={{
+                        height: '100%', minHeight: '320px',
+                        display: 'flex', flexDirection: 'column',
+                        padding: '20px', justifyContent: 'space-between',
+                        gap: '16px'
+                      }}>
+
+                        {/* Header: Date/Time & Location */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>
+                              {match.time} • {match.date === new Date().toISOString().split('T')[0] ? 'Today' : match.date.split('-').slice(1).join('/')}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <MapPin size={12} /> {match.clubName || 'Esade Sant Cugat'}
+                            </span>
                           </div>
-                        ))}
-                        {/* Empty slots placeholders */}
-                        {Array.from({ length: 4 - (match.playerCount || 0) }).map((_, i) => (
-                          <div key={i} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)', margin: '0 12px' }} />
-                        ))}
-                      </div>
-                      <button
-                        className="btn btn-primary"
-                        style={{ width: '100%', fontSize: '0.8rem', height: '36px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleJoin(match.id);
-                        }}
-                      >
-                        Join Match
-                      </button>
-                    </Card>
+                        </div>
+
+                        {/* Body: Vertical Stack */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                          {slots.slice(0, 4).map((p: any, i) => (
+                            <div key={p.id || i} style={{
+                              display: 'flex', alignItems: 'center', gap: '12px',
+                              padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                            }}>
+                              {p.isEmpty ? (
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+                                </div>
+                              ) : (
+                                <div style={{
+                                  width: '28px', height: '28px', borderRadius: '50%',
+                                  background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: '0.75rem', color: 'black', fontWeight: 'bold'
+                                }}>
+                                  {!p.avatar && p.name.charAt(0)}
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                                {p.isEmpty ? (
+                                  <span style={{ fontSize: '0.85rem', opacity: 0.4, fontStyle: 'italic' }}>Open Slot</span>
+                                ) : (
+                                  <>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{p.name.split(' ')[0]}</span>
+                                    <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>({Math.round(p.elo || 1200)})</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Footer: Status & Action */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{
+                            fontSize: '0.7rem', fontWeight: 800, padding: '6px 12px', borderRadius: '20px',
+                            background: emptySlots > 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+                            color: emptySlots > 0 ? '#4ade80' : 'rgba(255,255,255,0.6)',
+                            letterSpacing: '0.5px'
+                          }}>
+                            {emptySlots === 0 ? 'FULL' : 'OPEN'}
+                          </div>
+
+                          <button
+                            className={`btn ${isUserInMatch ? 'btn-outline-destructive' : isFull ? 'btn-disabled' : 'btn-primary'}`}
+                            disabled={!isUserInMatch && isFull}
+                            style={{
+                              padding: '0 20px', height: '36px', fontSize: '0.75rem', fontWeight: 700,
+                              background: isUserInMatch ? 'transparent' : isFull ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--active)) 100%)',
+                              border: isUserInMatch ? '1px solid hsl(var(--destructive))' : 'none',
+                              color: isUserInMatch ? 'hsl(var(--destructive))' : 'white',
+                              borderRadius: '20px', opacity: (!isUserInMatch && isFull) ? 0.5 : 1
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isUserInMatch) {
+                                handleLeave(match.id, match.date + 'T' + match.time);
+                              } else {
+                                handleJoin(match.id);
+                              }
+                            }}
+                          >
+                            {isUserInMatch ? 'LEAVE' : isFull ? 'FULL' : 'JOIN MATCH'}
+                          </button>
+                        </div>
+
+                      </Card>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section >
         )
