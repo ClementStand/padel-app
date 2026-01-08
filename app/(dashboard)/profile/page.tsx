@@ -156,32 +156,7 @@ export default function ProfilePage() {
                 {isEditing ? (
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {/* Avatar Upload */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Profile Picture</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={async (e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                        const file = e.target.files[0];
-                                        const fileExt = file.name.split('.').pop();
-                                        const fileName = `${user.id}/avatar.${fileExt}`;
 
-                                        // Upload
-                                        const { error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
-                                        if (error) {
-                                            alert("Upload failed: " + error.message);
-                                        } else {
-                                            // Update Profile
-                                            await updatePlayer({ id: user.id, avatar: fileName });
-                                            setUser(prev => prev ? ({ ...prev, avatar: fileName }) : null);
-                                            alert("Avatar updated!");
-                                        }
-                                    }
-                                }}
-                                style={{ fontSize: '0.8rem', color: 'white', width: '180px' }}
-                            />
-                        </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Handedness</label>

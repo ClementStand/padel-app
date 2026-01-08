@@ -11,7 +11,7 @@ export interface Booking {
     status: 'pending' | 'confirmed' | 'rejected' | 'open';
     userId: string;
     userName: string;
-    participants?: { id: string, name: string, elo?: number, avatar?: string }[];
+    participants?: { id: string, name: string, elo?: number, avatar?: string, country?: string }[];
     player1Id?: string;
     player2Id?: string;
     player3Id?: string;
@@ -104,7 +104,7 @@ export const getBookings = async (): Promise<Booking[]> => {
     if (allUserIds.size > 0) {
         const { data: profilesData } = await supabase
             .from('profiles')
-            .select('id, full_name, elo, avatar_url')
+            .select('id, full_name, elo, avatar_url, country')
             .in('id', Array.from(allUserIds));
 
         if (profilesData) {
@@ -137,11 +137,11 @@ export const getBookings = async (): Promise<Booking[]> => {
             player4Id: b.player_4_id,
             // Real participants list (with fallback for missing profiles)
             participants: [
-                b.player_1_id ? (userMap[b.player_1_id] ? { id: userMap[b.player_1_id].id, name: userMap[b.player_1_id].full_name, elo: userMap[b.player_1_id].elo, avatar: userMap[b.player_1_id].avatar_url } : { id: b.player_1_id, name: 'Unknown' }) : null,
-                b.player_2_id ? (userMap[b.player_2_id] ? { id: userMap[b.player_2_id].id, name: userMap[b.player_2_id].full_name, elo: userMap[b.player_2_id].elo, avatar: userMap[b.player_2_id].avatar_url } : { id: b.player_2_id, name: 'Unknown' }) : null,
-                b.player_3_id ? (userMap[b.player_3_id] ? { id: userMap[b.player_3_id].id, name: userMap[b.player_3_id].full_name, elo: userMap[b.player_3_id].elo, avatar: userMap[b.player_3_id].avatar_url } : { id: b.player_3_id, name: 'Unknown' }) : null,
-                b.player_4_id ? (userMap[b.player_4_id] ? { id: userMap[b.player_4_id].id, name: userMap[b.player_4_id].full_name, elo: userMap[b.player_4_id].elo, avatar: userMap[b.player_4_id].avatar_url } : { id: b.player_4_id, name: 'Unknown' }) : null,
-            ].filter(Boolean) as { id: string, name: string, elo?: number, avatar?: string }[]
+                b.player_1_id ? (userMap[b.player_1_id] ? { id: userMap[b.player_1_id].id, name: userMap[b.player_1_id].full_name, elo: userMap[b.player_1_id].elo, avatar: userMap[b.player_1_id].avatar_url, country: userMap[b.player_1_id].country } : { id: b.player_1_id, name: 'Unknown' }) : null,
+                b.player_2_id ? (userMap[b.player_2_id] ? { id: userMap[b.player_2_id].id, name: userMap[b.player_2_id].full_name, elo: userMap[b.player_2_id].elo, avatar: userMap[b.player_2_id].avatar_url, country: userMap[b.player_2_id].country } : { id: b.player_2_id, name: 'Unknown' }) : null,
+                b.player_3_id ? (userMap[b.player_3_id] ? { id: userMap[b.player_3_id].id, name: userMap[b.player_3_id].full_name, elo: userMap[b.player_3_id].elo, avatar: userMap[b.player_3_id].avatar_url, country: userMap[b.player_3_id].country } : { id: b.player_3_id, name: 'Unknown' }) : null,
+                b.player_4_id ? (userMap[b.player_4_id] ? { id: userMap[b.player_4_id].id, name: userMap[b.player_4_id].full_name, elo: userMap[b.player_4_id].elo, avatar: userMap[b.player_4_id].avatar_url, country: userMap[b.player_4_id].country } : { id: b.player_4_id, name: 'Unknown' }) : null,
+            ].filter(Boolean) as { id: string, name: string, elo?: number, avatar?: string, country?: string }[]
         };
     });
 };
@@ -469,21 +469,31 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
     const user = await getCurrentUser();
     if (!user) return [];
 
-    // 2. Get Open Bookings (Pending/Open, Future Date)
+    // 2. Identify Known Players (Social Graph)
+    // We use past bookings to identify players the user has played with.
+    // This provides a robust ID-based check compared to text names in 'matches'.
+    const { data: historyBookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .or(`player_1_id.eq.${userId},player_2_id.eq.${userId},player_3_id.eq.${userId},player_4_id.eq.${userId}`);
+
+    const knownPlayerIds = new Set<string>();
+    if (historyBookings) {
+        historyBookings.forEach((b: any) => {
+            if (b.player_1_id && b.player_1_id !== userId) knownPlayerIds.add(b.player_1_id);
+            if (b.player_2_id && b.player_2_id !== userId) knownPlayerIds.add(b.player_2_id);
+            if (b.player_3_id && b.player_3_id !== userId) knownPlayerIds.add(b.player_3_id);
+            if (b.player_4_id && b.player_4_id !== userId) knownPlayerIds.add(b.player_4_id);
+        });
+    }
+
+    // 3. Get Open Bookings
     const bookings = await getBookings();
-    console.log("[store] getRecs: Total bookings fetched:", bookings.length);
-
     const openBookings = bookings.filter(b => {
-        // Robust Date Check
-        const matchDate = new Date(b.date + 'T' + b.time); // e.g., 2024-12-18T20:00
+        const matchDate = new Date(b.date + 'T' + b.time);
         const now = new Date();
-
-        // Status Check: 'pending' OR 'open'
         const isOpen = b.status === 'pending' || b.status === 'open';
 
-        // Check if I am already in it as a PLAYER
-        // Note: We intentionally ignore b.userId (creator) here. 
-        // If creator leaves the player slot, they should see it in recommendations.
         const isMyMatch =
             b.player1Id === userId ||
             b.player2Id === userId ||
@@ -491,58 +501,40 @@ export const getRecommendedMatches = async (userId: string): Promise<Booking[]> 
             b.player4Id === userId;
 
         const isFuture = matchDate > now;
-        console.log(`[store] Check Match ${b.id}: Date=${b.date} Time=${b.time} Future=${isFuture} Open=${isOpen} MyMatch=${isMyMatch} Status=${b.status}`);
-
         return isFuture && isOpen && !isMyMatch;
     });
-    console.log("[store] getRecs: Filtered open bookings:", openBookings.length);
 
-    // Get simple "Nemesis" list (players user lost to)
-    const matches = await getMatches();
-    const nemesisSet = new Set<string>();
-    matches.forEach(m => {
-        // Assume user was in match. If user lost...
-        // Need to identify user team. 
-        // User is team 1 if submitted by or name match 'You'.
-        // Simplified: If user's name is in team 1 and winner is 2.
-        const t1 = m.team1Names || '';
-        const t2 = m.team2Names || '';
-        const userInT1 = t1.includes(user.name) || t1.includes('You');
-        const userInT2 = t2.includes(user.name) || t2.includes('You');
-
-        // Logic: if user lost, add opponents to Nemesis
-        if (userInT1 && m.winner === 2) {
-            m.team2Names.split(' & ').forEach(n => nemesisSet.add(n));
-        } else if (userInT2 && m.winner === 1) {
-            m.team1Names.split(' & ').forEach(n => nemesisSet.add(n));
-        }
-    });
-
-    // 3. Filter/Rank Logic for "Open Matches"
+    // 4. Rank Matches
     return openBookings.map(match => {
-        // Count players
         const pCount = [match.player1Id, match.player2Id, match.player3Id, match.player4Id].filter(Boolean).length;
-
-        // Participants for UI (mock names again if we didn't fetch them, but for Nemesis we need names...)
-        // Fix: `getBookings` isn't fetching all profile names. 
-        // For Nemesis logic to work on "Open Matches", we need to know who is in them.
-        // For MVP: We skip Nemesis check on OPEN matches for now (or assume we fetch it).
-        // Let's just focus on the "Need 1 more" logic.
-
         const participants = match.participants || [];
-        const isNemesis = false; // Disable Nemesis on Open Feed for now to simplify query needs
 
-        return { ...match, isNemesis, playerCount: pCount };
+        // Calculate Average ELO of current participants
+        const totalElo = participants.reduce((sum, p) => sum + (p.elo || 1200), 0);
+        const avgElo = participants.length > 0 ? totalElo / participants.length : 1200;
+        const eloDiff = Math.abs(avgElo - user.elo);
+
+        // Check for Known Players (ID Match)
+        const hasKnownPlayer = participants.some(p => knownPlayerIds.has(p.id));
+
+        return {
+            ...match,
+            playerCount: pCount,
+            avgElo,
+            eloDiff,
+            hasKnownPlayer
+        };
     }).filter(match => {
-        // Keep open ones (less than 4 players)
-        return match.playerCount < 4;
+        return (match.playerCount || 0) < 4;
     }).sort((a, b) => {
-        // Prioritize: High Priority = Missing 1 person (3 players)
-        // So pCount 3 comes first.
-        // Then pCount 2.
-        if (a.playerCount === 3 && b.playerCount !== 3) return -1;
-        if (b.playerCount === 3 && a.playerCount !== 3) return 1;
-        return 0;
+        // Priority 1: Has Known Player (Social)
+        if (a.hasKnownPlayer && !b.hasKnownPlayer) return -1;
+        if (!a.hasKnownPlayer && b.hasKnownPlayer) return 1;
+
+        // Priority 2: ELO Proximity (Secondary Key)
+        // Ascending: Smallest difference first
+        // If a.diff < b.diff, result is negative -> a comes first. Correct.
+        return a.eloDiff - b.eloDiff;
     });
 };
 

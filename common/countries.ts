@@ -26,9 +26,18 @@ export const COUNTRIES = [
     { code: 'VE', name: 'Venezuela' }
 ].sort((a, b) => a.name.localeCompare(b.name));
 
-export const getFlagEmoji = (countryCode: string) => {
-    if (!countryCode) return '';
-    const codePoints = countryCode
+export const getFlagEmoji = (countryOrCode: string) => {
+    if (!countryOrCode) return '';
+    let code = countryOrCode;
+
+    if (code.length > 2) {
+        const found = COUNTRIES.find(c => c.name.toLowerCase() === code.toLowerCase());
+        if (found) code = found.code;
+    }
+
+    if (code.length !== 2) return '🌍'; // Fallback if not a 2-letter code
+
+    const codePoints = code
         .toUpperCase()
         .split('')
         .map(char => 127397 + char.charCodeAt(0));

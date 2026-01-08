@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Check, X, AlertTriangle } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Calendar, Clock, MapPin, Users, Info } from 'lucide-react';
 import Card from '@/components/Card';
+import PlayerCardModal from '@/components/PlayerCardModal';
 import {
     getMatches, getCurrentUser, submitMatchScore, confirmMatchScore, disputeMatch, getBookings,
     Match, Player, Booking
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 export default function MatchesPage() {
@@ -24,7 +26,11 @@ export default function MatchesPage() {
     const [opponent, setOpponent] = useState('');
     const [score, setScore] = useState('');
     const [result, setResult] = useState<'win' | 'loss' | null>(null);
+
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    // Player Card Modal State
+    const [selectedPlayerForCard, setSelectedPlayerForCard] = useState<any | null>(null);
 
     const START_TAGS = ['Good Game', 'Intense', 'Friendly', 'Competitive', 'Fun', 'Rainy', 'Sunny', 'Windy'];
 
@@ -157,52 +163,113 @@ export default function MatchesPage() {
             {/* Upcoming Matches */}
             {upcomingMatches.length > 0 && (
                 <section style={{ marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '1rem', color: 'hsl(var(--secondary))' }}>Your Upcoming Matches</h2>
-                    <div style={{ display: 'grid', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>Upcoming Matches</h2>
+                        <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>{upcomingMatches.length} scheduled</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '1.25rem' }}>
                         {upcomingMatches.map(booking => (
-                            <Card key={booking.id} style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>{booking.date} • {booking.time}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{booking.clubName}</div>
-                                </div>
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>
-                                            {(booking.participants?.length || 1)}/4 Players
+                            <div key={booking.id} style={{
+                                background: 'linear-gradient(145deg, hsl(var(--card)), rgba(255,255,255,0.02))',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: '20px',
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 20px -2px rgba(0,0,0,0.2)'
+                            }}>
+                                {/* Card Header */}
+                                <div style={{
+                                    padding: '1.25rem',
+                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+                                }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', color: 'hsl(var(--primary))', fontWeight: 600 }}>
+                                            <Calendar size={16} />
+                                            <span>{booking.date}</span>
                                         </div>
-                                        {booking.participants?.length === 4 ? (
-                                            <span style={{ fontSize: '0.75rem', background: 'hsl(var(--success))', color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>Confirmed</span>
-                                        ) : (
-                                            <span style={{ fontSize: '0.75rem', background: 'hsl(var(--warning))', color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>Looking for players</span>
-                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.5rem', fontWeight: 800 }}>
+                                            {booking.time}
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                    <div style={{ textAlign: 'right', opacity: 0.7 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontSize: '0.8rem' }}>
+                                            <span>{booking.clubName}</span>
+                                            <MapPin size={14} />
+                                        </div>
+                                        <div style={{
+                                            marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            background: booking.participants?.length === 4 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+                                            color: booking.participants?.length === 4 ? '#4ade80' : '#facc15',
+                                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700
+                                        }}>
+                                            {booking.participants?.length === 4 ? 'CONFIRMED' : 'LOOKING FOR PLAYERS'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card Body */}
+                                <div style={{ padding: '1.25rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+                                        <Users size={16} />
+                                        <span>Lineup ({booking.participants?.length || 0}/4)</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem' }}>
                                         {booking.participants?.map(p => (
-                                            <div key={p.id} style={{ fontSize: '0.8rem', opacity: 0.8, background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>
-                                                {p.name.split(' ')[0]}
+                                            <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                <div style={{
+                                                    width: '40px', height: '40px', borderRadius: '50%',
+                                                    background: p.avatar
+                                                        ? `url(${p.avatar.startsWith('http') ? p.avatar : supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover`
+                                                        : '#334155',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '0.9rem', fontWeight: 700, color: 'white',
+                                                    // border: '2px solid rgba(255,255,255,0.1)' // Removed mirror effect
+                                                }}>
+                                                    {p.name.charAt(0)}
+                                                </div>
+                                                <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>{p.name.split(' ')[0]}</span>
+                                            </div>
+                                        ))}
+                                        {/* Empty placeholders */}
+                                        {Array.from({ length: 4 - (booking.participants?.length || 0) }).map((_, i) => (
+                                            <div key={i} style={{
+                                                width: '40px', height: '40px', borderRadius: '50%',
+                                                border: '2px dashed rgba(255,255,255,0.1)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                opacity: 0.3
+                                            }}>
+                                                <Plus size={16} />
                                             </div>
                                         ))}
                                     </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <button
+                                            className="btn btn-outline"
+                                            style={{
+                                                borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                fontSize: '0.9rem'
+                                            }}
+                                            onClick={() => handleLeave(booking.id, booking.date, booking.time)}
+                                        >
+                                            <X size={16} /> Leave
+                                        </button>
+                                        <button
+                                            className="btn btn-primary"
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                fontSize: '0.9rem'
+                                            }}
+                                            onClick={() => window.location.href = `/chat/${booking.id}`}
+                                        >
+                                            Chat
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button
-                                        className="btn btn-outline"
-                                        style={{ flex: 1, borderColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive))' }}
-                                        onClick={() => handleLeave(booking.id, booking.date, booking.time)}
-                                    >
-                                        Leave Match
-                                    </button>
-                                    <button
-                                        className="btn btn-primary"
-                                        style={{ flex: 1 }}
-                                        onClick={() => window.location.href = `/chat/${booking.id}`}
-                                    >
-                                        Chat
-                                    </button>
-                                </div>
-                            </Card>
+                            </div>
                         ))}
                     </div>
                 </section>
@@ -337,6 +404,14 @@ export default function MatchesPage() {
             )}
 
 
+
+            {/* Player Card Modal */}
+            <PlayerCardModal
+                player={selectedPlayerForCard}
+                isOpen={!!selectedPlayerForCard}
+                onClose={() => setSelectedPlayerForCard(null)}
+                currentUserId={user?.id || ''}
+            />
 
             {/* Pending Matches Section */}
             {pendingMatches.length > 0 && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { X, Trophy, Activity, Hand, MapPin } from 'lucide-react';
+import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { COUNTRIES, getFlagEmoji } from '@/common/countries';
 
@@ -16,6 +17,16 @@ export default function PlayerCardModal({ player, isOpen, onClose, currentUserId
 
     const isMe = player.id === currentUserId;
 
+    // Lock body scroll
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -27,6 +38,7 @@ export default function PlayerCardModal({ player, isOpen, onClose, currentUserId
             <div style={{
                 background: '#1e293b', width: '100%', maxWidth: '360px',
                 borderRadius: '24px', overflow: 'hidden',
+                maxHeight: '90vh', overflowY: 'auto',
                 border: '1px solid rgba(255,255,255,0.1)',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                 position: 'relative'
@@ -43,8 +55,8 @@ export default function PlayerCardModal({ player, isOpen, onClose, currentUserId
                         background: player.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(player.avatar).data.publicUrl}) center/cover` : '#334155',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '2.5rem', fontWeight: 700,
-                        border: '4px solid rgba(255,255,255,0.1)',
-                        boxShadow: '0 0 20px rgba(56, 189, 248, 0.2)'
+                        // border: '4px solid rgba(255,255,255,0.1)',
+                        // boxShadow: '0 0 20px rgba(56, 189, 248, 0.2)' // Removed mirror effect
                     }}>
                         {!player.avatar && (player.name?.charAt(0) || 'P')}
                     </div>

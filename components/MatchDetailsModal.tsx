@@ -9,11 +9,25 @@ interface MatchDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onJoin: (bookingId: string) => void;
+    onLeave?: (id: string, date: string) => void;
+    onPlayerClick?: (player: any) => void;
     currentUserId: string;
 }
 
-export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, onLeave, currentUserId }: MatchDetailsModalProps & { onLeave?: (id: string, date: string) => void }) {
+export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, onLeave, onPlayerClick, currentUserId }: MatchDetailsModalProps) {
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
 
     if (!isOpen || !booking) return null;
 
@@ -45,6 +59,8 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, on
             <div style={{
                 background: '#1e293b', width: '100%', maxWidth: '400px',
                 borderRadius: '24px', position: 'relative', overflow: 'hidden',
+                display: 'flex', flexDirection: 'column',
+                maxHeight: '90vh', overflowY: 'auto',
                 border: '1px solid rgba(255,255,255,0.1)',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
             }} onClick={e => e.stopPropagation()}>
@@ -90,11 +106,18 @@ export default function MatchDetailsModal({ booking, isOpen, onClose, onJoin, on
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', opacity: 0.9 }}>Lineup</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         {slots.map((slot, i) => (
-                            <div key={i} style={{
-                                background: 'rgba(255,255,255,0.05)', borderRadius: '16px', padding: '12px',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-                                border: slot.player ? '1px solid rgba(56, 189, 248, 0.2)' : '1px dashed rgba(255,255,255,0.1)'
-                            }}>
+                            <div key={i}
+                                onClick={() => slot.player && onPlayerClick && onPlayerClick(slot.player)}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)', borderRadius: '16px', padding: '12px',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+                                    border: slot.player ? '1px solid rgba(56, 189, 248, 0.2)' : '1px dashed rgba(255,255,255,0.1)',
+                                    cursor: slot.player ? 'pointer' : 'default',
+                                    transition: 'transform 0.2s',
+                                }}
+                                onMouseEnter={(e) => slot.player && (e.currentTarget.style.transform = 'scale(1.02)')}
+                                onMouseLeave={(e) => slot.player && (e.currentTarget.style.transform = 'scale(1)')}
+                            >
                                 <div style={{
                                     width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px',
                                     background: slot.player?.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(slot.player.avatar).data.publicUrl}) center/cover` : '#334155',

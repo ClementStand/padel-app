@@ -1,6 +1,7 @@
 'use client';
 
 import { X, User, Trophy, Calendar } from 'lucide-react';
+import { useEffect } from 'react';
 import { Player } from '@/lib/store';
 import styles from './ProfileModal.module.css';
 
@@ -10,6 +11,13 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ player, onClose }: ProfileModalProps) {
+
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, []);
 
     const getFlag = (code?: string) => {
         if (!code) return '🇪🇸'; // Default to Spain for mocked data if missing

@@ -140,7 +140,7 @@ export default function SignupPage() {
                         className="input"
                         placeholder="Course (e.g. BBA)"
                         value={course}
-                        onChange={(e) => setCourse(e.target.value)}
+                        onChange={(e) => setCourse(e.target.value.toUpperCase())}
                         style={{ flex: 2 }}
                     />
                     <input
@@ -150,6 +150,11 @@ export default function SignupPage() {
                         onChange={(e) => setYear(e.target.value)}
                         style={{ flex: 1 }}
                     />
+                </div>
+                {/* Helper Texts */}
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '-0.5rem' }}>
+                    <p style={{ flex: 2, fontSize: '0.7rem', opacity: 0.5 }}>Must be all caps (e.g. BBA)</p>
+                    <p style={{ flex: 1, fontSize: '0.7rem', opacity: 0.5 }}>Graduation Year</p>
                 </div>
                 <div>
                     <label style={{ fontSize: '0.8rem', marginBottom: '4px', display: 'block' }}>Date of Birth</label>

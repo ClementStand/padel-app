@@ -347,10 +347,10 @@ export default function Home() {
                 <div key={match.id} style={{ minWidth: '280px', scrollSnapAlign: 'start' }}>
                   {/* Made Card clickable to open details */}
                   <div onClick={() => openMatchDetails(match)} style={{ height: '100%', cursor: 'pointer' }}>
-                    <Card glass style={{ height: '100%', position: 'relative', border: match.isNemesis ? '1px solid hsl(var(--secondary))' : undefined }}>
+                    <Card glass style={{ height: '100%', position: 'relative' }}>
                       {(match.playerCount || 0) < 4 && (
                         <div style={{
-                          position: 'absolute', top: 12, right: 12, // Moved back to TOP
+                          position: 'absolute', top: 12, right: 12,
                           background: match.playerCount === 3 ? 'hsl(var(--destructive))' : 'hsl(var(--success))',
                           color: match.playerCount === 3 ? 'white' : 'black',
                           fontSize: '0.7rem', fontWeight: 800, padding: '4px 8px', borderRadius: '12px',
@@ -360,35 +360,44 @@ export default function Home() {
                           {match.playerCount === 3 ? '1 SPOT LEFT! 🔥' : `${4 - (match.playerCount || 0)} SPOTS LEFT`}
                         </div>
                       )}
-                      <div style={{ marginBottom: '1rem', paddingRight: '110px' }}> {/* Added padding to avoid overlap */}
+                      <div style={{ marginBottom: '1rem', paddingRight: '110px' }}>
                         <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '4px' }}>{match.clubName} • {match.date}</div>
                         <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.playerCount}/4 Players</div>
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
                         {match.participants?.map(p => (
-                          <div key={p.id} onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedPlayerForCard({ ...p, matchesPlayed: 0, wins: 0 }); // Passing partial player, modal handles basic display. Ideally fetch full player but for MVP display name/avatar is ok.
-                          }} style={{
-                            width: '28px', height: '28px', borderRadius: '50%',
-                            background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.7rem', color: 'black', fontWeight: 'bold',
-                            cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)'
-                          }}>
-                            {!p.avatar && p.name.charAt(0)}
+                          <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px' }}>
+                            <div onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPlayerForCard({ ...p, matchesPlayed: 0, wins: 0 });
+                            }} style={{
+                              width: '36px', height: '36px', borderRadius: '50%',
+                              background: p.avatar ? `url(${supabase.storage.from('avatars').getPublicUrl(p.avatar).data.publicUrl}) center/cover` : '#ccc',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '0.9rem', color: 'black', fontWeight: 'bold',
+                              cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)',
+                              marginBottom: '4px'
+                            }}>
+                              {!p.avatar && p.name.charAt(0)}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.name.split(' ')[0]}
+                            </div>
+                            <div style={{ fontSize: '0.6rem', opacity: 0.6 }}>
+                              ({Math.round(p.elo || 1200)})
+                            </div>
                           </div>
                         ))}
                         {/* Empty slots placeholders */}
                         {Array.from({ length: 4 - (match.playerCount || 0) }).map((_, i) => (
-                          <div key={i} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)' }} />
+                          <div key={i} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.3)', margin: '0 12px' }} />
                         ))}
                       </div>
                       <button
                         className="btn btn-primary"
                         style={{ width: '100%', fontSize: '0.8rem', height: '36px' }}
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent opening modal when clicking Join directly
+                          e.stopPropagation();
                           handleJoin(match.id);
                         }}
                       >
@@ -399,7 +408,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </section>
+          </section >
         )
       }
 
@@ -410,6 +419,7 @@ export default function Home() {
         onClose={() => setSelectedMatch(null)}
         onJoin={handleJoin}
         onLeave={handleLeave}
+        onPlayerClick={setSelectedPlayerForCard}
         currentUserId={user?.id || ''}
       />
 
@@ -473,22 +483,24 @@ export default function Home() {
       </section>
 
       {/* Onboarding Modal */}
-      {user && user.elo === 0 && (
-        <OnboardingModal
-          isOpen={true}
-          onComplete={async (newElo) => {
-            // Optimistic Update to prevent double-click requirement
-            if (user && newElo) {
-              setUser({ ...user, elo: newElo });
-            }
+      {
+        user && user.elo === 0 && (
+          <OnboardingModal
+            isOpen={true}
+            onComplete={async (newElo) => {
+              // Optimistic Update to prevent double-click requirement
+              if (user && newElo) {
+                setUser({ ...user, elo: newElo });
+              }
 
-            // Background refresh to be safe
-            const u = await getCurrentUser();
-            if (u) setUser(u);
-            loadRecs();
-          }}
-        />
-      )}
+              // Background refresh to be safe
+              const u = await getCurrentUser();
+              if (u) setUser(u);
+              loadRecs();
+            }}
+          />
+        )
+      }
 
     </main >
   );

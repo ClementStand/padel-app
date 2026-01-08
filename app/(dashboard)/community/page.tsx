@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { getPlayers, Player } from '@/lib/store';
+import { getFlagEmoji } from '@/common/countries';
 import ProfileModal from '@/components/ProfileModal';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
@@ -24,11 +25,7 @@ export default function CommunityPage() {
         p.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const getFlag = (code?: string) => {
-        if (!code) return '🇪🇸'; // Default
-        const map: Record<string, string> = { 'ES': '🇪🇸', 'FR': '🇫🇷', 'IT': '🇮🇹', 'PT': '🇵🇹', 'DE': '🇩🇪', 'UK': '🇬🇧', 'BE': '🇧🇪', 'NL': '🇳🇱', 'SE': '🇸🇪', 'US': '🇺🇸' };
-        return map[code] || '🌍';
-    }
+
 
     return (
         <div className={styles.container}>
@@ -69,7 +66,7 @@ export default function CommunityPage() {
                             <div className={styles.info}>
                                 <div className={styles.nameRow}>
                                     <span className={styles.name}>{player.name}</span>
-                                    <span className={styles.flag}>{getFlag(player.country)}</span>
+                                    <span className={styles.flag}>{getFlagEmoji(player.country || 'EX')}</span>
                                 </div>
                                 <div className={styles.meta}>
                                     <span>Matches: {player.matchesPlayed}</span>
